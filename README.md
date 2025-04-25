@@ -66,15 +66,15 @@ The application uses the `dotenv` package to load these variables. You don't nee
 
 ## NPM Commands
 
-| Command           | Description                 |
-| ----------------- | --------------------------- |
-| `npm run build`   | Build the project           |
-| `npm run start`   | Start the project           |
-| `npm run deploy`  | Build and start the project |
-| `npm run test`    | Run tests                   |
-| `npm run dev`     | Start in dev mode           |
-| `npm run restart` | Restart dev server          |
-| `npm run clean`   | Clean pm2 process           |
+| Command                                   | Description                 |
+| ----------------------------------------- | --------------------------- |
+| `docker compose exec app npm run build`   | Build the project           |
+| `docker compose exec app npm run start`   | Start the project           |
+| `docker compose exec app npm run deploy`  | Build and start the project |
+| `docker compose exec app npm run test`    | Run tests                   |
+| `docker compose exec app npm run dev`     | Start in dev mode           |
+| `docker compose exec app npm run restart` | Restart dev server          |
+| `docker compose exec app npm run clean`   | Clean pm2 process           |
 
 ## Basic Commands
 

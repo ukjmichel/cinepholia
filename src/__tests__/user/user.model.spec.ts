@@ -16,20 +16,14 @@ describe('UserModel', () => {
   let sequelize: Sequelize;
 
   beforeAll(async () => {
-    // Use MySQL database that's already set up in your Docker environment
-    // instead of SQLite which requires additional installation
     sequelize = new Sequelize({
-      dialect: 'mysql',
-      host: process.env.DB_HOST, // Docker service name
-      port: 3306,
-      username: process.env.DB_USER,
-      password: process.env.DB_PASSWORD, // adjust according to your docker-compose
-      database: process.env.DB_NAME, // adjust according to your docker-compose
+      dialect: 'sqlite',
+      storage: ':memory:', // In-memory DB for isolated tests
       logging: false,
       models: [UserModel],
     });
 
-    await sequelize.sync({ force: true });
+    await sequelize.sync({ force: true }); // Clean schema
   });
 
   afterAll(async () => {

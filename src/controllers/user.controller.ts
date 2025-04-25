@@ -1,42 +1,41 @@
 // src/controllers/user.controller.ts
-import { Request, Response } from 'express';
-import {
-  createUser,
-  isEmailUnique,
-  getUserById,
-  updateUser,
-  changePassword,
-  deleteUser,
-  searchUsers,
-} from '../services/user.service';
+import { NextFunction, Request, Response } from 'express';
+import UserService from '../services/user.service';
+
+// Create an instance of the UserService
+export const userService = new UserService();
 
 export async function handleCreateUser(
   req: Request,
-  res: Response
-): Promise<any> {
+  res: Response,
+  next: NextFunction
+): Promise<void> {
   const { name, email, password } = req.body;
 
-  // Check if all required fields are provided
   if (!name || !email || !password) {
-    return res.status(400).json({ message: 'Missing required fields' });
+    res.status(400).json({ message: 'Missing required fields' });
+    return;
   }
 
   try {
-    // Check if email is unique
-    const emailIsUnique = await isEmailUnique(email);
+    const emailIsUnique = await userService.isEmailUnique(email);
     if (!emailIsUnique) {
-      return res.status(400).json({ message: 'Email already exists' });
+      res.status(400).json({ message: 'Email already exists' });
+      return;
     }
 
-    // Create the user
-    const user = await createUser(name, email, password);
+    const user = await userService.createUser(name, email, password);
 
-    // Respond with success
-    return res.status(201).json({ user, message: 'User created successfully' });
+    // 👇 Pass user ID in a custom property or params
+    req.params.userId = user.id;
+
+    // 👇 Save full user in res.locals for future use
+    res.locals.user = user;
+
+    next(); // ⬅️ go to next middleware (e.g. setRole)
   } catch (error) {
-    // Log the error and return a 500 status code
     console.error('User creation failed:', error);
-    return res.status(500).json({ message: 'Internal server error' });
+    res.status(500).json({ message: 'Internal server error' });
   }
 }
 
@@ -48,7 +47,7 @@ export async function handleGetUser(req: Request, res: Response): Promise<any> {
   }
 
   try {
-    const user = await getUserById(id);
+    const user = await userService.getUserById(id);
 
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
@@ -82,13 +81,13 @@ export async function handleUpdateUser(
   try {
     // If email is being updated, check if it's unique
     if (email) {
-      const emailIsUnique = await isEmailUnique(email);
+      const emailIsUnique = await userService.isEmailUnique(email);
       if (!emailIsUnique) {
         return res.status(400).json({ message: 'Email already exists' });
       }
     }
 
-    const updatedUser = await updateUser(id, { name, email });
+    const updatedUser = await userService.updateUser(id, { name, email });
 
     if (!updatedUser) {
       return res.status(404).json({ message: 'User not found' });
@@ -121,7 +120,11 @@ export async function handleChangePassword(
   }
 
   try {
-    const success = await changePassword(id, currentPassword, newPassword);
+    const success = await userService.changePassword(
+      id,
+      currentPassword,
+      newPassword
+    );
 
     if (!success) {
       return res
@@ -147,7 +150,7 @@ export async function handleDeleteUser(
   }
 
   try {
-    const deleted = await deleteUser(id);
+    const deleted = await userService.deleteUser(id);
 
     if (!deleted) {
       return res.status(404).json({ message: 'User not found' });
@@ -175,7 +178,7 @@ export async function handleSearchUsers(
   }
 
   try {
-    const users = await searchUsers(searchTerm, limit, offset);
+    const users = await userService.searchUsers(searchTerm, limit, offset);
 
     return res.status(200).json({
       users,

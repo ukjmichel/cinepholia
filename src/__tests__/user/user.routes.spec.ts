@@ -1,14 +1,33 @@
-// src/__tests__/user/user.routes.spec.ts
 import request from 'supertest';
 import express from 'express';
 import userRouter from '../../routes/user.routes';
 import * as userController from '../../controllers/user.controller';
 
-// Mock the controller functions
+// 🧪 Mock des middlewares
+jest.mock('../../middlewares/auth.middleware', () => ({
+  authenticateJwt: (req: any, res: any, next: any) => {
+    res.locals.user = {
+      id: '123',
+      name: 'Test User',
+      email: 'test@example.com',
+    };
+    return next();
+  },
+}));
+
+jest.mock('../../middlewares/authorization.middleware', () => ({
+  Permission: {
+    authorize: () => (req: any, res: any, next: any) => next(),
+    selfOrAdmin: () => (req: any, res: any, next: any) => next(),
+  },
+}));
+
+// 🧪 Mock des contrôleurs
 jest.mock('../../controllers/user.controller', () => ({
-  handleCreateUser: jest.fn((req, res) =>
-    res.status(201).json({ message: 'Mock create user' })
-  ),
+  handleCreateUser: jest.fn((req, res, next) => {
+    res.locals.user = { id: '123', name: req.body.name, email: req.body.email };
+    return next(); // nécessaire si on chaîne avec handleSetRole
+  }),
   handleGetUser: jest.fn((req, res) =>
     res.status(200).json({ id: req.params.id, name: 'Test User' })
   ),
@@ -26,6 +45,15 @@ jest.mock('../../controllers/user.controller', () => ({
   ),
 }));
 
+// Mock de handleSetRole pour qu'il termine la requête POST /users
+jest.mock('../../controllers/autorization.controller', () => ({
+  handleSetRole: () => (req: any, res: any) =>
+    res.status(201).json({
+      message: 'User created successfully',
+      user: res.locals.user,
+    }),
+}));
+
 describe('User Routes', () => {
   let app: express.Application;
 
@@ -34,12 +62,11 @@ describe('User Routes', () => {
     app.use(express.json());
     app.use('/users', userRouter);
 
-    // Clear all mocks before each test
     jest.clearAllMocks();
   });
 
   describe('POST /users', () => {
-    it('should route to handleCreateUser controller', async () => {
+    it('should call handleCreateUser and handleSetRole and return created user', async () => {
       const response = await request(app).post('/users').send({
         name: 'Test User',
         email: 'test@example.com',
@@ -47,8 +74,16 @@ describe('User Routes', () => {
       });
 
       expect(response.status).toBe(201);
+      expect(response.body).toEqual({
+        message: 'User created successfully',
+        user: {
+          id: '123',
+          name: 'Test User',
+          email: 'test@example.com',
+        },
+      });
+
       expect(userController.handleCreateUser).toHaveBeenCalled();
-      expect(response.body).toEqual({ message: 'Mock create user' });
     });
   });
 
@@ -110,8 +145,7 @@ describe('User Routes', () => {
       });
     });
 
-    // Test that search works with pagination parameters
-    it('should route to handleSearchUsers with pagination parameters', async () => {
+    it('should route to handleSearchUsers with pagination', async () => {
       const response = await request(app).get(
         '/users/search?searchTerm=test&limit=5&offset=10'
       );
@@ -119,7 +153,6 @@ describe('User Routes', () => {
       expect(response.status).toBe(200);
       expect(userController.handleSearchUsers).toHaveBeenCalled();
 
-      // Check if the query parameters are passed correctly
       const req = (userController.handleSearchUsers as jest.Mock).mock
         .calls[0][0];
       expect(req.query.searchTerm).toBe('test');
@@ -128,22 +161,15 @@ describe('User Routes', () => {
     });
   });
 
-  // Test route precedence
   describe('Route Precedence', () => {
-    it('should route to search and not interpret "search" as an ID', async () => {
-      // First access the search endpoint
+    it('should prioritize /search over /:id route', async () => {
       await request(app).get('/users/search?searchTerm=test');
-
-      // Check that the search handler was called
       expect(userController.handleSearchUsers).toHaveBeenCalled();
       expect(userController.handleGetUser).not.toHaveBeenCalled();
 
-      // Reset mocks
       jest.clearAllMocks();
 
-      // Now try a normal ID request to confirm it goes to the right handler
-      await request(app).get('/users/123');
-
+      await request(app).get('/users/456');
       expect(userController.handleGetUser).toHaveBeenCalled();
       expect(userController.handleSearchUsers).not.toHaveBeenCalled();
     });

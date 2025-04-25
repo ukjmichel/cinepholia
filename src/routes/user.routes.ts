@@ -8,6 +8,9 @@ import {
   handleDeleteUser,
   handleSearchUsers,
 } from '../controllers/user.controller';
+import { handleSetRole } from '../controllers/autorization.controller';
+import { authenticateJwt } from '../middlewares/auth.middleware';
+import { Permission } from '../middlewares/authorization.middleware';
 
 const userRouter = Router();
 
@@ -70,7 +73,15 @@ const userRouter = Router();
  *       500:
  *         description: Internal server error
  */
-userRouter.post('/', handleCreateUser);
+userRouter.post('/', handleCreateUser, handleSetRole('utilisateur'));
+
+userRouter.post(
+  '/employee/',
+  authenticateJwt,
+  Permission.authorize('employé'),
+  handleCreateUser,
+  handleSetRole('employé')
+);
 
 /**
  * @swagger
@@ -142,7 +153,12 @@ userRouter.post('/', handleCreateUser);
  *       500:
  *         description: Internal server error
  */
-userRouter.get('/search', handleSearchUsers);
+userRouter.get(
+  '/search',
+  authenticateJwt,
+  Permission.authorize('employé'),
+  handleSearchUsers
+);
 
 /**
  * @swagger
@@ -186,7 +202,7 @@ userRouter.get('/search', handleSearchUsers);
  *       500:
  *         description: Internal server error
  */
-userRouter.get('/:id', handleGetUser);
+userRouter.get('/:id', Permission.selfOrAdmin(), handleGetUser);
 
 /**
  * @swagger
@@ -250,7 +266,7 @@ userRouter.get('/:id', handleGetUser);
  *       500:
  *         description: Internal server error
  */
-userRouter.put('/:id', handleUpdateUser);
+userRouter.put('/:id', Permission.selfOrAdmin(), handleUpdateUser);
 
 /**
  * @swagger
@@ -300,7 +316,7 @@ userRouter.put('/:id', handleUpdateUser);
  *       500:
  *         description: Internal server error
  */
-userRouter.put('/:id/password', handleChangePassword);
+userRouter.put('/:id/password', Permission.selfOrAdmin(), handleChangePassword);
 
 /**
  * @swagger
@@ -335,6 +351,6 @@ userRouter.put('/:id/password', handleChangePassword);
  *       500:
  *         description: Internal server error
  */
-userRouter.delete('/:id', handleDeleteUser);
+userRouter.delete('/:id', Permission.selfOrAdmin(), handleDeleteUser);
 
 export default userRouter;

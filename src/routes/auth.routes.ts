@@ -1,5 +1,9 @@
 import express from 'express';
-import { loginController } from '../controllers/auth.controller';
+import {
+  handleLogin,
+  handleVerifyToken,
+  handleRefreshToken,
+} from '../controllers/auth.controller';
 
 const authRouter = express.Router();
 
@@ -7,8 +11,8 @@ const authRouter = express.Router();
  * @swagger
  * /auth/login:
  *   post:
- *     summary: Authentifie un utilisateur
- *     description: Authentifie un utilisateur avec email et mot de passe et génère un token JWT
+ *     summary: Authenticate a user
+ *     description: Authenticates a user with email and password and generates a JWT token
  *     tags: [Authentication]
  *     requestBody:
  *       required: true
@@ -23,14 +27,14 @@ const authRouter = express.Router();
  *               email:
  *                 type: string
  *                 format: email
- *                 description: Email de l'utilisateur
+ *                 description: User's email
  *               password:
  *                 type: string
  *                 format: password
- *                 description: Mot de passe de l'utilisateur
+ *                 description: User's password
  *     responses:
  *       200:
- *         description: Connexion réussie
+ *         description: Login successful
  *         content:
  *           application/json:
  *             schema:
@@ -44,14 +48,101 @@ const authRouter = express.Router();
  *                   description: JWT token
  *                 user:
  *                   type: object
- *                   description: Informations de l'utilisateur
+ *                   description: User information
  *       400:
- *         description: Données manquantes
+ *         description: Missing data
  *       401:
- *         description: Identifiants invalides
+ *         description: Invalid credentials
  *       500:
- *         description: Erreur serveur
+ *         description: Server error
  */
-authRouter.post('/login', loginController);
+authRouter.post('/login', handleLogin);
+
+/**
+ * @swagger
+ * /auth/verify:
+ *   post:
+ *     summary: Verify a JWT token
+ *     description: Verifies a JWT token and returns the user data if valid
+ *     tags: [Authentication]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - token
+ *             properties:
+ *               token:
+ *                 type: string
+ *                 description: JWT token to verify
+ *     responses:
+ *       200:
+ *         description: Token is valid
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: Token is valid
+ *                 user:
+ *                   type: object
+ *                   description: User data from token
+ *       400:
+ *         description: Token is missing
+ *       401:
+ *         description: Invalid token
+ *       500:
+ *         description: Server error
+ */
+authRouter.post('/verify', handleVerifyToken);
+
+/**
+ * @swagger
+ * /auth/refresh:
+ *   post:
+ *     summary: Refresh a JWT token
+ *     description: Generates a new JWT token for a valid user ID
+ *     tags: [Authentication]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - userId
+ *             properties:
+ *               userId:
+ *                 type: string
+ *                 description: User ID to refresh token for
+ *     responses:
+ *       200:
+ *         description: Token refreshed
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: Token refreshed
+ *                 token:
+ *                   type: string
+ *                   description: New JWT token
+ *                 user:
+ *                   type: object
+ *                   description: User information
+ *       400:
+ *         description: User ID is missing
+ *       404:
+ *         description: User not found
+ *       500:
+ *         description: Server error
+ */
+authRouter.post('/refresh', handleRefreshToken);
 
 export default authRouter;

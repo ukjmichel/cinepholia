@@ -35,8 +35,14 @@ class UserModel
     type: DataType.STRING,
     unique: true,
     validate: {
-      len: [2, 20],
-      is: /^[a-zA-Z0-9]+$/,
+      len: {
+        args: [2, 20],
+        msg: 'Name must be between 2 and 20 characters',
+      },
+      is: {
+        args: /^[a-zA-Z0-9]+$/,
+        msg: 'Name can only contain letters and numbers',
+      },
     },
   })
   public name!: string;
