@@ -18,13 +18,21 @@ const router = Router();
  *     summary: Create a new movie theater
  *     tags:
  *       - MovieTheaters
+ *     security:
+ *       - bearerAuth: []
  *     requestBody:
- *       description: Movie theater data
  *       required: true
  *       content:
  *         application/json:
  *           schema:
  *             type: object
+ *             required:
+ *               - theaterId
+ *               - address
+ *               - postalCode
+ *               - city
+ *               - phone
+ *               - email
  *             properties:
  *               theaterId:
  *                 type: string
@@ -61,9 +69,9 @@ router.post(
  *     parameters:
  *       - in: path
  *         name: theaterId
+ *         required: true
  *         schema:
  *           type: string
- *         required: true
  *         description: The ID of the movie theater
  *     responses:
  *       200:
@@ -97,15 +105,16 @@ router.get('/', getAllMovieTheaters);
  *     summary: Update a movie theater by ID
  *     tags:
  *       - MovieTheaters
+ *     security:
+ *       - bearerAuth: []
  *     parameters:
  *       - in: path
  *         name: theaterId
+ *         required: true
  *         schema:
  *           type: string
- *         required: true
  *         description: The ID of the movie theater
  *     requestBody:
- *       description: Movie theater data to update
  *       required: true
  *       content:
  *         application/json:
@@ -144,12 +153,14 @@ router.put(
  *     summary: Delete a movie theater by ID
  *     tags:
  *       - MovieTheaters
+ *     security:
+ *       - bearerAuth: []
  *     parameters:
  *       - in: path
  *         name: theaterId
+ *         required: true
  *         schema:
  *           type: string
- *         required: true
  *         description: The ID of the movie theater
  *     responses:
  *       204:

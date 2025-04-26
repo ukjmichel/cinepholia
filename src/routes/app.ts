@@ -5,8 +5,7 @@ import { setupSwagger } from '../config/swagger';
 import userRouter from './user.routes';
 import authRouter from './auth.routes';
 import movieTheatherRouter from './movieTheater.routes';
-import { authenticateJwt } from '../middlewares/auth.middleware';
-import { Permission } from '../middlewares/authorization.middleware';
+import movieHallRouter from "./movieHall.routes"
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -40,6 +39,7 @@ app.use(
   '/api/movie-theater',
   movieTheatherRouter
 );
+app.use('/api/movie-hall', movieHallRouter);
 
 app.listen(port, () => {
   console.log(`Server is running on port ${port}`);
