@@ -1,6 +1,6 @@
 // src/controllers/auth.controller.ts
 import { Request, Response } from 'express';
-import AuthService from '../services/auth.service';
+import {AuthService} from '../services/auth.service';
 
 // Export the auth service instance for testing - this is key!
 export const authService = new AuthService();

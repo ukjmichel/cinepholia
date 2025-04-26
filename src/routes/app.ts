@@ -4,6 +4,9 @@ import { sequelize } from '../config/db';
 import { setupSwagger } from '../config/swagger';
 import userRouter from './user.routes';
 import authRouter from './auth.routes';
+import movieTheatherRouter from './movieTheater.routes';
+import { authenticateJwt } from '../middlewares/auth.middleware';
+import { Permission } from '../middlewares/authorization.middleware';
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -32,6 +35,13 @@ app.get('/', (req, res) => {
 app.use('/api/users', userRouter);
 
 app.use('/api/auth', authRouter);
+
+app.use(
+  '/movie-theater',
+  authenticateJwt,
+  Permission.authorize('employé'),
+  movieTheatherRouter
+);
 
 app.listen(port, () => {
   console.log(`Server is running on port ${port}`);

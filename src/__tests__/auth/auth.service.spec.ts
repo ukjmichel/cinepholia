@@ -1,6 +1,6 @@
 // src/__tests__/auth/auth.service.spec.ts
 import jwt from 'jsonwebtoken';
-import AuthService from '../../services/auth.service';
+import {AuthService} from '../../services/auth.service';
 import { UserInterface } from '../../interfaces/user.interface';
 
 // Mock the UserModel and jwt

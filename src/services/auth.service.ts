@@ -1,10 +1,10 @@
 // src/services/auth.service.ts
 import * as jwt from 'jsonwebtoken';
-import { Secret, SignOptions } from 'jsonwebtoken';
+import { Secret } from 'jsonwebtoken';
 import { UserModel } from '../models/user.model';
 import { UserInterface, UserPayload } from '../interfaces/user.interface';
 
-export default class AuthService {
+export class AuthService {
   private readonly jwtSecret: string;
   private readonly tokenExpiration: number;
 

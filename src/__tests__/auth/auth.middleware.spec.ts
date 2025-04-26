@@ -3,7 +3,7 @@ import {
   authenticateJwt,
   optionalAuthentication,
 } from '../../middlewares/auth.middleware';
-import AuthService from '../../services/auth.service';
+import {AuthService} from '../../services/auth.service';
 import * as AuthMiddleware from '../../middlewares/auth.middleware';
 import { Request, Response, NextFunction } from 'express';
 import { UserPayload } from '../../interfaces/user.interface';

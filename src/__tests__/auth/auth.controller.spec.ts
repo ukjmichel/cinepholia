@@ -1,7 +1,7 @@
 // src/__tests__/auth/auth.controller.spec.ts
 import { Request, Response } from 'express';
 import * as AuthController from '../../controllers/auth.controller';
-import AuthService from '../../services/auth.service';
+import {AuthService} from '../../services/auth.service';
 
 // Mock the AuthService module
 jest.mock('../../services/auth.service');

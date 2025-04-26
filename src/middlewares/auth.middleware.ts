@@ -2,7 +2,7 @@
 
 // src/middleware/auth.middleware.ts
 import { Request, Response, NextFunction } from 'express';
-import AuthService from '../services/auth.service';
+import {AuthService} from '../services/auth.service';
 import { UserPayload } from '../interfaces/user.interface';
 
 // Extend Express Request interface to include user property
