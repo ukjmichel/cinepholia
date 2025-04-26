@@ -37,9 +37,7 @@ app.use('/api/users', userRouter);
 app.use('/api/auth', authRouter);
 
 app.use(
-  '/movie-theater',
-  authenticateJwt,
-  Permission.authorize('employé'),
+  '/api/movie-theater',
   movieTheatherRouter
 );
 

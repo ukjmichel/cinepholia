@@ -6,6 +6,8 @@ import {
   updateMovietheater,
   deleteMovietheater,
 } from '../controllers/movieTheater.controller';
+import { authenticateJwt } from '../middlewares/auth.middleware';
+import { Permission } from '../middlewares/authorization.middleware';
 
 const router = Router();
 
@@ -42,7 +44,12 @@ const router = Router();
  *       500:
  *         description: Failed to create movie theater
  */
-router.post('/', createMovietheater);
+router.post(
+  '/',
+  authenticateJwt,
+  Permission.authorize('employé'),
+  createMovietheater
+);
 
 /**
  * @swagger
@@ -123,7 +130,12 @@ router.get('/', getAllMovieTheaters);
  *       500:
  *         description: Failed to update movie theater
  */
-router.put('/:theaterId', updateMovietheater);
+router.put(
+  '/:theaterId',
+  authenticateJwt,
+  Permission.authorize('employé'),
+  updateMovietheater
+);
 
 /**
  * @swagger
@@ -147,6 +159,11 @@ router.put('/:theaterId', updateMovietheater);
  *       500:
  *         description: Failed to delete movie theater
  */
-router.delete('/:theaterId', deleteMovietheater);
+router.delete(
+  '/:theaterId',
+  authenticateJwt,
+  Permission.authorize('employé'),
+  deleteMovietheater
+);
 
 export default router;

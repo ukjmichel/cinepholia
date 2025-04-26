@@ -2,6 +2,7 @@ import { Sequelize } from 'sequelize-typescript'; // Use sequelize-typescript
 import dotenv from 'dotenv';
 import { UserModel } from '../models/user.model'; // Import your models
 import { AuthorizationModel } from '../models/authorization.model';
+import { MovieTheaterModel } from '../models/movietheater.model';
 
 dotenv.config(); // Load environment variables
 
@@ -13,7 +14,7 @@ export const sequelize = new Sequelize({
   username: process.env.DB_USER,
   password: process.env.DB_PASSWORD,
   database: process.env.DB_NAME,
-  models: [UserModel,AuthorizationModel], // Register all models here
+  models: [UserModel,AuthorizationModel,MovieTheaterModel], // Register all models here
   logging: false,
   pool: {
     max: 10,

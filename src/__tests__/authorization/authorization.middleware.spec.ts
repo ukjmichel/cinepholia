@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import { Permission } from '../../../src/middlewares/authorization.middleware';
+import { Permission } from '../../middlewares/authorization.middleware'; // Adjust path if needed
 import { AuthorizationService } from '../../../src/services/authorization.service';
 
 // 🧪 Mock AuthorizationService
@@ -15,26 +15,39 @@ describe('Permission middleware', () => {
 
   const mockStatus = jest.fn().mockReturnThis();
   const mockJson = jest.fn();
+  const mockSend = jest.fn();
 
   beforeEach(() => {
     req = {
       params: {},
       query: {},
+      user: undefined,
     };
     res = {
-      locals: {},
       status: mockStatus,
       json: mockJson,
+      send: mockSend,
     };
     next = jest.fn();
 
     mockStatus.mockClear();
     mockJson.mockClear();
+    mockSend.mockClear();
     next.mockClear();
 
-    // Reset the mocked class methods
     (MockAuthorizationService.prototype.hasPermission as jest.Mock).mockReset();
     (MockAuthorizationService.prototype.getRole as jest.Mock).mockReset();
+  });
+
+  // 👉 Helper to create a fake user
+  const createMockUser = (
+    id = '123',
+    name = 'Test User',
+    email = 'test@example.com'
+  ) => ({
+    id,
+    name,
+    email,
   });
 
   describe('authorize()', () => {
@@ -42,7 +55,7 @@ describe('Permission middleware', () => {
       (
         MockAuthorizationService.prototype.hasPermission as jest.Mock
       ).mockResolvedValue(true);
-      res.locals = { user: { id: '123' } };
+      req.user = createMockUser();
 
       const middleware = Permission.authorize('employé');
       await middleware(req as Request, res as Response, next);
@@ -58,7 +71,7 @@ describe('Permission middleware', () => {
       (
         MockAuthorizationService.prototype.hasPermission as jest.Mock
       ).mockResolvedValue(false);
-      res.locals = { user: { id: '123' } };
+      req.user = createMockUser();
 
       const middleware = Permission.authorize('administrateur');
       await middleware(req as Request, res as Response, next);
@@ -76,15 +89,15 @@ describe('Permission middleware', () => {
 
       expect(mockStatus).toHaveBeenCalledWith(401);
       expect(mockJson).toHaveBeenCalledWith({
-        message: 'Unauthorized: user not found in context',
+        message: 'Unauthorized: user not found in token',
       });
     });
 
     it('should return 500 if hasPermission throws', async () => {
       (
         MockAuthorizationService.prototype.hasPermission as jest.Mock
-      ).mockRejectedValue(new Error('Error'));
-      res.locals = { user: { id: '123' } };
+      ).mockRejectedValue(new Error('DB error'));
+      req.user = createMockUser();
 
       const middleware = Permission.authorize('administrateur');
       await middleware(req as Request, res as Response, next);
@@ -99,7 +112,7 @@ describe('Permission middleware', () => {
   describe('selfOrAdmin()', () => {
     it('should allow access if user is self', async () => {
       req.params = { id: '123' };
-      res.locals = { user: { id: '123' } };
+      req.user = createMockUser('123');
 
       const middleware = Permission.selfOrAdmin();
       await middleware(req as Request, res as Response, next);
@@ -109,7 +122,7 @@ describe('Permission middleware', () => {
 
     it('should allow access if user is admin', async () => {
       req.params = { id: 'other' };
-      res.locals = { user: { id: 'admin-id' } };
+      req.user = createMockUser('admin-id');
 
       (
         MockAuthorizationService.prototype.getRole as jest.Mock
@@ -126,7 +139,7 @@ describe('Permission middleware', () => {
 
     it('should return 403 if user is not self and not admin', async () => {
       req.params = { id: '456' };
-      res.locals = { user: { id: '123' } };
+      req.user = createMockUser('123');
 
       (
         MockAuthorizationService.prototype.getRole as jest.Mock
@@ -148,12 +161,12 @@ describe('Permission middleware', () => {
 
       expect(mockStatus).toHaveBeenCalledWith(401);
       expect(mockJson).toHaveBeenCalledWith({
-        message: 'Unauthorized: user not found in context',
+        message: 'Unauthorized: user not found in token',
       });
     });
 
     it('should return 400 if target user ID is missing', async () => {
-      res.locals = { user: { id: '123' } };
+      req.user = createMockUser('123');
 
       const middleware = Permission.selfOrAdmin();
       await middleware(req as Request, res as Response, next);
@@ -166,7 +179,7 @@ describe('Permission middleware', () => {
 
     it('should return 500 if getRole throws', async () => {
       req.params = { id: '456' };
-      res.locals = { user: { id: '123' } };
+      req.user = createMockUser('123');
 
       (
         MockAuthorizationService.prototype.getRole as jest.Mock

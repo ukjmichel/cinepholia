@@ -1,8 +1,6 @@
-// First, let's fix the auth.middleware.ts file to make it more testable
-
 // src/middleware/auth.middleware.ts
 import { Request, Response, NextFunction } from 'express';
-import {AuthService} from '../services/auth.service';
+import { AuthService } from '../services/auth.service';
 import { UserPayload } from '../interfaces/user.interface';
 
 // Extend Express Request interface to include user property
@@ -14,11 +12,13 @@ declare global {
   }
 }
 
-// Export the auth service instance for testing 
+// Export the auth service instance for testing or reuse
 export const authService = new AuthService();
 
 /**
- * Middleware to authenticate requests using JWT token from Authorization header
+ * Middleware to authenticate requests using JWT token from Authorization header.
+ * The token should include the user's id in its payload.
+ *
  * @param req Express request object
  * @param res Express response object
  * @param next Express next function
@@ -40,7 +40,7 @@ export function authenticateJwt(
   // Extract the token
   const token = authHeader.split(' ')[1];
 
-  // Verify the token
+  // Verify the token using AuthService
   const payload = authService.verifyToken(token);
 
   if (!payload) {
@@ -48,7 +48,7 @@ export function authenticateJwt(
     return;
   }
 
-  // Add user data to request object
+  // Add user data (which includes the user id) to the request object
   req.user = payload;
 
   // Proceed to the next middleware/controller
@@ -56,8 +56,10 @@ export function authenticateJwt(
 }
 
 /**
- * Optional authentication middleware
- * Adds user to request if token is valid but does not require authentication
+ * Optional authentication middleware.
+ * If a valid token is provided, it adds user data to the request; otherwise,
+ * it simply moves to the next middleware without rejecting the request.
+ *
  * @param req Express request object
  * @param res Express response object
  * @param next Express next function
@@ -70,7 +72,7 @@ export function optionalAuthentication(
   // Get the authorization header
   const authHeader = req.headers.authorization;
 
-  // If no authorization header, proceed without authentication
+  // If no authorization header or it doesn't start with 'Bearer ', move on
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     return next();
   }
@@ -78,10 +80,8 @@ export function optionalAuthentication(
   // Extract the token
   const token = authHeader.split(' ')[1];
 
-  // Verify the token
+  // Verify the token; if valid, add user to request
   const payload = authService.verifyToken(token);
-
-  // If valid token, add user to request
   if (payload) {
     req.user = payload;
   }

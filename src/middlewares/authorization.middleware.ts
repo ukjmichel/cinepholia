@@ -14,14 +14,18 @@ export class Permission {
    * @param requiredRole The minimum role required to access the route
    */
   static authorize(requiredRole: Role): RequestHandler {
-    return async (req: Request, res: Response, next: NextFunction):Promise<any> => {
+    return async (
+      req: Request,
+      res: Response,
+      next: NextFunction
+    ): Promise<any> => {
       try {
-        const user = res.locals.user;
+        const user = req.user; // 👈 Get user from req.user instead of res.locals
 
         if (!user || !user.id) {
           return res
             .status(401)
-            .json({ message: 'Unauthorized: user not found in context' });
+            .json({ message: 'Unauthorized: user not found in token' });
         }
 
         const hasAccess = await authorizationService.hasPermission(
@@ -47,15 +51,19 @@ export class Permission {
    * Middleware to allow access if user is owner or admin.
    */
   static selfOrAdmin(): RequestHandler {
-    return async (req: Request, res: Response, next: NextFunction):Promise<any> => {
+    return async (
+      req: Request,
+      res: Response,
+      next: NextFunction
+    ): Promise<any> => {
       try {
-        const user = res.locals.user;
+        const user = req.user; // 👈 Also from req.user
         const targetUserId = req.params.id;
 
         if (!user || !user.id) {
           return res
             .status(401)
-            .json({ message: 'Unauthorized: user not found in context' });
+            .json({ message: 'Unauthorized: user not found in token' });
         }
 
         if (!targetUserId) {
