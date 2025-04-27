@@ -5,6 +5,8 @@ import { AuthorizationModel } from '../models/authorization.model';
 import { MovieTheaterModel } from '../models/movietheater.model';
 import { MovieHallModel } from '../models/movieHall.model';
 import { MovieModel } from '../models/movie.model';
+import { ScreeningModel } from '../models/screening.model';
+import { BookingModel } from '../models/booking.model';
 
 dotenv.config(); // Load environment variables
 
@@ -16,7 +18,15 @@ export const sequelize = new Sequelize({
   username: process.env.DB_USER,
   password: process.env.DB_PASSWORD,
   database: process.env.DB_NAME,
-  models: [UserModel,AuthorizationModel,MovieTheaterModel,MovieHallModel,MovieModel], // Register all models here
+  models: [
+    UserModel,
+    AuthorizationModel,
+    MovieTheaterModel,
+    MovieHallModel,
+    MovieModel,
+    ScreeningModel,
+    BookingModel,
+  ], // Register all models here
   logging: false,
   pool: {
     max: 10,
@@ -28,6 +38,6 @@ export const sequelize = new Sequelize({
 
 // Ensure the models are synchronized
 sequelize
-  .sync()
+  .sync({ alter: true })
   .then(() => console.log('Database synced!'))
   .catch((err) => console.error('Error syncing database:', err));
