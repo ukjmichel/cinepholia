@@ -7,6 +7,7 @@ import { MovieHallModel } from '../models/movieHall.model';
 import { MovieModel } from '../models/movie.model';
 import { ScreeningModel } from '../models/screening.model';
 import { BookingModel } from '../models/booking.model';
+import { SeatBookingModel } from '../models/seatBooking.model';
 
 dotenv.config(); // Load environment variables
 
@@ -26,6 +27,7 @@ export const sequelize = new Sequelize({
     MovieModel,
     ScreeningModel,
     BookingModel,
+    SeatBookingModel,
   ], // Register all models here
   logging: false,
   pool: {
