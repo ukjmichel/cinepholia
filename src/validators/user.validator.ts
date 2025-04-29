@@ -41,3 +41,37 @@ export const validateLogin = [
       return true;
     }),
 ];
+
+export const validateUpdateUser = [
+  body('email')
+    .optional({ checkFalsy: true })
+    .trim()
+    .isEmail()
+    .withMessage('Email must be valid')
+    .isLength({ max: 255 })
+    .withMessage('Email must be less than 255 characters'),
+
+  body('name')
+    .optional({ checkFalsy: true })
+    .trim()
+    .matches(/^[A-Za-z0-9\s]+$/) // <-- allow letters, numbers, and spaces
+    .withMessage(
+      'Name must contain only letters, numbers, and spaces (no special characters)'
+    )
+    .isLength({ min: 3, max: 30 })
+    .withMessage('Name must be between 3 and 30 characters'),
+];
+
+export const validatePassword = [
+  body('password')
+    .optional({ checkFalsy: true })
+    .trim()
+    .matches(
+      /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?])[A-Za-z\d!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]{6,}$/
+    )
+    .withMessage(
+      'Password must contain at least one uppercase letter, one lowercase letter, one number, one special character, and no spaces'
+    )
+    .isLength({ max: 100 })
+    .withMessage('Password must be less than 100 characters'),
+];

@@ -9,10 +9,21 @@ import {
 } from '../controllers/user.controller';
 import { authenticateJwt } from '../middlewares/auth.middleware';
 import { Permission } from '../middlewares/authorization.middleware';
-import { validateCreateUser } from '../validators/user.validator';
+import {
+  validateCreateUser,
+  validatePassword,
+  validateUpdateUser,
+} from '../validators/user.validator';
 import handleValidationErrors from '../middlewares/handleValidationErrors.middleware';
 
 const userRouter = Router();
+
+/**
+ * @swagger
+ * tags:
+ *   name: Users
+ *   description: User management (CRUD, search, authentication)
+ */
 
 /**
  * @swagger
@@ -20,8 +31,7 @@ const userRouter = Router();
  *   post:
  *     summary: Create a new user
  *     description: Creates a new user with name, email, and password.
- *     tags:
- *       - Users
+ *     tags: [Users]
  *     requestBody:
  *       required: true
  *       content:
@@ -62,9 +72,8 @@ userRouter.post(
  * /users/employee:
  *   post:
  *     summary: Create a new employee user (admin only)
- *     description: Creates an employee account. Only administrators can access.
- *     tags:
- *       - Users
+ *     description: Only administrators can create employee accounts.
+ *     tags: [Users]
  *     security:
  *       - bearerAuth: []
  *     requestBody:
@@ -111,9 +120,8 @@ userRouter.post(
  * /users/search:
  *   get:
  *     summary: Search users
- *     description: Search users by name or email (requires employee permission).
- *     tags:
- *       - Users
+ *     description: Search for users by name or email (requires employee permission).
+ *     tags: [Users]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -124,13 +132,11 @@ userRouter.post(
  *           type: string
  *       - name: limit
  *         in: query
- *         required: false
  *         schema:
  *           type: integer
  *           default: 10
  *       - name: offset
  *         in: query
- *         required: false
  *         schema:
  *           type: integer
  *           default: 0
@@ -155,8 +161,7 @@ userRouter.get(
  *   get:
  *     summary: Get user by ID
  *     description: Retrieves a user by ID (self or staff only).
- *     tags:
- *       - Users
+ *     tags: [Users]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -186,8 +191,7 @@ userRouter.get(
  *   put:
  *     summary: Update user information
  *     description: Update user name or email (self or admin only).
- *     tags:
- *       - Users
+ *     tags: [Users]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -219,6 +223,8 @@ userRouter.get(
  */
 userRouter.put(
   '/:id',
+  validateUpdateUser,
+  handleValidationErrors,
   authenticateJwt,
   Permission.selfOrAdmin(),
   handleUpdateUser
@@ -229,9 +235,8 @@ userRouter.put(
  * /users/{id}/password:
  *   put:
  *     summary: Change user password
- *     description: Allows a user to change their password.
- *     tags:
- *       - Users
+ *     description: Allows a user to change their password (self or admin).
+ *     tags: [Users]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -246,21 +251,32 @@ userRouter.put(
  *         application/json:
  *           schema:
  *             type: object
+ *             required:
+ *               - currentPassword
+ *               - newPassword
  *             properties:
  *               currentPassword:
  *                 type: string
+ *                 example: OldPassword123!
  *               newPassword:
  *                 type: string
+ *                 example: NewPassword123!
  *     responses:
  *       200:
  *         description: Password changed successfully
  *       400:
- *         description: Validation failed
+ *         description: Validation error
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
  *       500:
  *         description: Internal server error
  */
 userRouter.put(
   '/:id/password',
+  validatePassword,
+  handleValidationErrors,
   authenticateJwt,
   Permission.selfOrAdmin(),
   handleChangePassword
@@ -270,10 +286,9 @@ userRouter.put(
  * @swagger
  * /users/{id}:
  *   delete:
- *     summary: Delete user
- *     description: Deletes a user (self or admin only).
- *     tags:
- *       - Users
+ *     summary: Delete a user
+ *     description: Deletes a user account (self or admin only).
+ *     tags: [Users]
  *     security:
  *       - bearerAuth: []
  *     parameters:

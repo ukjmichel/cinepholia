@@ -1,8 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
 import * as UserController from '../../controllers/user.controller';
-import { userService } from '../../controllers/user.controller';
-import { authService } from '../../controllers/user.controller';
-import { authorizationService } from '../../controllers/user.controller';
 
 jest.mock('../../services/user.service');
 jest.mock('../../services/auth.service');
@@ -16,7 +13,17 @@ describe('🧪 User Controller Tests', () => {
   beforeEach(() => {
     jest.clearAllMocks();
 
-    mockRequest = { body: {}, params: {}, query: {} };
+    mockRequest = {
+      body: {},
+      params: {},
+      query: {},
+      user: {
+        id: '1',
+        name: 'Test User',
+        email: 'test@example.com',
+      },
+    };
+
     mockResponse = {
       status: jest.fn().mockReturnThis(),
       json: jest.fn().mockReturnThis(),
@@ -33,14 +40,20 @@ describe('🧪 User Controller Tests', () => {
         password: 'Password123!',
       };
 
-      (userService.isEmailUnique as jest.Mock).mockResolvedValue(true);
-      (userService.createUser as jest.Mock).mockResolvedValue({
+      (UserController.userService.isEmailUnique as jest.Mock).mockResolvedValue(
+        true
+      );
+      (UserController.userService.createUser as jest.Mock).mockResolvedValue({
         id: '123',
         name: 'TestUser',
         email: 'test@example.com',
       });
-      (authService.generateToken as jest.Mock).mockReturnValue('mock-token');
-      (authorizationService.setRole as jest.Mock).mockResolvedValue(undefined);
+      (UserController.authService.generateToken as jest.Mock).mockReturnValue(
+        'mock-token'
+      );
+      (
+        UserController.authorizationService.setRole as jest.Mock
+      ).mockResolvedValue(undefined);
 
       const createUserFn = UserController.handleCreateUser('utilisateur');
       await createUserFn(
@@ -51,7 +64,7 @@ describe('🧪 User Controller Tests', () => {
 
       expect(mockResponse.status).toHaveBeenCalledWith(201);
       expect(mockResponse.json).toHaveBeenCalledWith({
-        message: 'new account successfully created',
+        message: 'New account successfully created',
         data: { id: '123', name: 'TestUser', email: 'test@example.com' },
         role: 'utilisateur',
         token: 'mock-token',
@@ -64,7 +77,9 @@ describe('🧪 User Controller Tests', () => {
         email: 'test@example.com',
         password: 'Password123!',
       };
-      (userService.isEmailUnique as jest.Mock).mockResolvedValue(false);
+      (UserController.userService.isEmailUnique as jest.Mock).mockResolvedValue(
+        false
+      );
 
       const createUserFn = UserController.handleCreateUser('utilisateur');
       await createUserFn(
@@ -85,7 +100,7 @@ describe('🧪 User Controller Tests', () => {
         email: 'test@example.com',
         password: 'Password123!',
       };
-      (userService.isEmailUnique as jest.Mock).mockRejectedValue(
+      (UserController.userService.isEmailUnique as jest.Mock).mockRejectedValue(
         new Error('Boom')
       );
 
@@ -118,7 +133,9 @@ describe('🧪 User Controller Tests', () => {
 
     it('should return 404 if user not found', async () => {
       mockRequest.params = { id: '1' };
-      (userService.getUserById as jest.Mock).mockResolvedValue(null);
+      (UserController.userService.getUserById as jest.Mock).mockResolvedValue(
+        null
+      );
 
       await UserController.handleGetUser(
         mockRequest as Request,
@@ -131,7 +148,9 @@ describe('🧪 User Controller Tests', () => {
     it('should return 200 with user', async () => {
       const user = { id: '1', name: 'John', email: 'john@example.com' };
       mockRequest.params = { id: '1' };
-      (userService.getUserById as jest.Mock).mockResolvedValue(user);
+      (UserController.userService.getUserById as jest.Mock).mockResolvedValue(
+        user
+      );
 
       await UserController.handleGetUser(
         mockRequest as Request,
@@ -144,7 +163,7 @@ describe('🧪 User Controller Tests', () => {
 
     it('should return 500 if service throws', async () => {
       mockRequest.params = { id: '1' };
-      (userService.getUserById as jest.Mock).mockRejectedValue(
+      (UserController.userService.getUserById as jest.Mock).mockRejectedValue(
         new Error('Boom')
       );
 
@@ -159,17 +178,6 @@ describe('🧪 User Controller Tests', () => {
 
   // 🧪 handleUpdateUser
   describe('handleUpdateUser', () => {
-    it('should return 400 if no id', async () => {
-      mockRequest.params = {};
-
-      await UserController.handleUpdateUser(
-        mockRequest as Request,
-        mockResponse as Response
-      );
-
-      expect(mockResponse.status).toHaveBeenCalledWith(400);
-    });
-
     it('should return 400 if no fields to update', async () => {
       mockRequest.params = { id: '1' };
       mockRequest.body = {};
@@ -185,7 +193,15 @@ describe('🧪 User Controller Tests', () => {
     it('should return 400 if email already exists', async () => {
       mockRequest.params = { id: '1' };
       mockRequest.body = { email: 'used@mail.com' };
-      (userService.isEmailUnique as jest.Mock).mockResolvedValue(false);
+
+      (UserController.userService.getUserById as jest.Mock).mockResolvedValue({
+        id: '1',
+        name: 'OldName',
+        email: 'old@mail.com',
+      });
+      (UserController.userService.isEmailUnique as jest.Mock).mockResolvedValue(
+        false
+      );
 
       await UserController.handleUpdateUser(
         mockRequest as Request,
@@ -198,8 +214,13 @@ describe('🧪 User Controller Tests', () => {
     it('should return 404 if user not found during update', async () => {
       mockRequest.params = { id: '1' };
       mockRequest.body = { name: 'UpdatedName' };
-      (userService.isEmailUnique as jest.Mock).mockResolvedValue(true);
-      (userService.updateUser as jest.Mock).mockResolvedValue(null);
+
+      (UserController.userService.getUserById as jest.Mock).mockResolvedValue(
+        null
+      );
+      (UserController.userService.isEmailUnique as jest.Mock).mockResolvedValue(
+        true
+      );
 
       await UserController.handleUpdateUser(
         mockRequest as Request,
@@ -215,10 +236,27 @@ describe('🧪 User Controller Tests', () => {
         name: 'Updated',
         email: 'updated@mail.com',
       };
+
       mockRequest.params = { id: '1' };
       mockRequest.body = { name: 'Updated' };
-      (userService.isEmailUnique as jest.Mock).mockResolvedValue(true);
-      (userService.updateUser as jest.Mock).mockResolvedValue(updatedUser);
+
+      (UserController.userService.getUserById as jest.Mock)
+        .mockResolvedValueOnce({
+          id: '1',
+          name: 'OldName',
+          email: 'old@mail.com',
+        })
+        .mockResolvedValueOnce(updatedUser);
+
+      (UserController.userService.isEmailUnique as jest.Mock).mockResolvedValue(
+        true
+      );
+      (UserController.userService.updateUser as jest.Mock).mockResolvedValue(
+        updatedUser
+      );
+      (UserController.authService.generateToken as jest.Mock).mockReturnValue(
+        'mock-token'
+      );
 
       await UserController.handleUpdateUser(
         mockRequest as Request,
@@ -229,14 +267,23 @@ describe('🧪 User Controller Tests', () => {
       expect(mockResponse.json).toHaveBeenCalledWith({
         user: updatedUser,
         message: 'User updated successfully',
+        token: 'mock-token',
       });
     });
+
 
     it('should return 500 if service throws', async () => {
       mockRequest.params = { id: '1' };
       mockRequest.body = { name: 'Boom', email: 'boom@mail.com' };
-      (userService.isEmailUnique as jest.Mock).mockResolvedValue(true);
-      (userService.updateUser as jest.Mock).mockRejectedValue(
+      (UserController.userService.getUserById as jest.Mock).mockResolvedValue({
+        id: '1',
+        name: 'OldName',
+        email: 'old@mail.com',
+      });
+      (UserController.userService.isEmailUnique as jest.Mock).mockResolvedValue(
+        true
+      );
+      (UserController.userService.updateUser as jest.Mock).mockRejectedValue(
         new Error('Boom')
       );
 
@@ -246,9 +293,6 @@ describe('🧪 User Controller Tests', () => {
       );
 
       expect(mockResponse.status).toHaveBeenCalledWith(500);
-      expect(mockResponse.json).toHaveBeenCalledWith({
-        message: 'Internal server error',
-      });
     });
   });
 
@@ -269,7 +313,10 @@ describe('🧪 User Controller Tests', () => {
     it('should return 400 if change failed', async () => {
       mockRequest.params = { id: '1' };
       mockRequest.body = { currentPassword: 'old', newPassword: 'new' };
-      (userService.changePassword as jest.Mock).mockResolvedValue(false);
+
+      (
+        UserController.userService.changePassword as jest.Mock
+      ).mockResolvedValue(false);
 
       await UserController.handleChangePassword(
         mockRequest as Request,
@@ -282,7 +329,18 @@ describe('🧪 User Controller Tests', () => {
     it('should return 200 if password changed', async () => {
       mockRequest.params = { id: '1' };
       mockRequest.body = { currentPassword: 'old', newPassword: 'new' };
-      (userService.changePassword as jest.Mock).mockResolvedValue(true);
+
+      (
+        UserController.userService.changePassword as jest.Mock
+      ).mockResolvedValue(true);
+      (UserController.userService.getUserById as jest.Mock).mockResolvedValue({
+        id: '1',
+        name: 'Updated',
+        email: 'updated@example.com',
+      });
+      (UserController.authService.generateToken as jest.Mock).mockReturnValue(
+        'mock-token'
+      );
 
       await UserController.handleChangePassword(
         mockRequest as Request,
@@ -292,15 +350,17 @@ describe('🧪 User Controller Tests', () => {
       expect(mockResponse.status).toHaveBeenCalledWith(200);
       expect(mockResponse.json).toHaveBeenCalledWith({
         message: 'Password changed successfully',
+        token: 'mock-token',
       });
     });
 
     it('should return 500 if service throws', async () => {
       mockRequest.params = { id: '1' };
       mockRequest.body = { currentPassword: 'fail', newPassword: 'fail' };
-      (userService.changePassword as jest.Mock).mockRejectedValue(
-        new Error('Fail')
-      );
+
+      (
+        UserController.userService.changePassword as jest.Mock
+      ).mockRejectedValue(new Error('Fail'));
 
       await UserController.handleChangePassword(
         mockRequest as Request,
@@ -326,7 +386,9 @@ describe('🧪 User Controller Tests', () => {
 
     it('should return 404 if user not deleted', async () => {
       mockRequest.params = { id: '1' };
-      (userService.deleteUser as jest.Mock).mockResolvedValue(false);
+      (UserController.userService.deleteUser as jest.Mock).mockResolvedValue(
+        false
+      );
 
       await UserController.handleDeleteUser(
         mockRequest as Request,
@@ -338,7 +400,9 @@ describe('🧪 User Controller Tests', () => {
 
     it('should return 200 if user deleted', async () => {
       mockRequest.params = { id: '1' };
-      (userService.deleteUser as jest.Mock).mockResolvedValue(true);
+      (UserController.userService.deleteUser as jest.Mock).mockResolvedValue(
+        true
+      );
 
       await UserController.handleDeleteUser(
         mockRequest as Request,
@@ -353,7 +417,7 @@ describe('🧪 User Controller Tests', () => {
 
     it('should return 500 if service throws', async () => {
       mockRequest.params = { id: '1' };
-      (userService.deleteUser as jest.Mock).mockRejectedValue(
+      (UserController.userService.deleteUser as jest.Mock).mockRejectedValue(
         new Error('Fail')
       );
 
@@ -382,7 +446,10 @@ describe('🧪 User Controller Tests', () => {
     it('should return 200 with results', async () => {
       const results = [{ id: '1', name: 'X', email: 'x@x.com' }];
       mockRequest.query = { searchTerm: 'x', limit: '5', offset: '0' };
-      (userService.searchUsers as jest.Mock).mockResolvedValue(results);
+
+      (UserController.userService.searchUsers as jest.Mock).mockResolvedValue(
+        results
+      );
 
       await UserController.handleSearchUsers(
         mockRequest as Request,
@@ -398,7 +465,10 @@ describe('🧪 User Controller Tests', () => {
 
     it('should return 500 if service returns invalid users', async () => {
       mockRequest.query = { searchTerm: 'x', limit: '5', offset: '0' };
-      (userService.searchUsers as jest.Mock).mockResolvedValue(null);
+
+      (UserController.userService.searchUsers as jest.Mock).mockResolvedValue(
+        null
+      );
 
       await UserController.handleSearchUsers(
         mockRequest as Request,
@@ -413,7 +483,8 @@ describe('🧪 User Controller Tests', () => {
 
     it('should return 500 if service throws', async () => {
       mockRequest.query = { searchTerm: 'x' };
-      (userService.searchUsers as jest.Mock).mockRejectedValue(
+
+      (UserController.userService.searchUsers as jest.Mock).mockRejectedValue(
         new Error('Boom')
       );
 

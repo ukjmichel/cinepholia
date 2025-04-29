@@ -26,7 +26,7 @@ export class AuthService {
    * @param user User object containing sensitive information
    * @returns Signed JWT token
    */
-  generateToken(user: UserInterface): string {
+  generateToken(user: Omit<UserInterface, 'password'>): string {
     const payload: UserPayload = {
       id: user.id,
       name: user.name,
