@@ -194,4 +194,31 @@ describe('ScreeningService', () => {
       expect(result).toBe(false);
     });
   });
+  describe('getScreeningByTheaterAndMovieId', () => {
+    it('should return screenings matching theaterId and movieId', async () => {
+      // Act
+      const results = await screeningService.getScreeningByTheaterAndMovieId(
+        'theater123',
+        'movie123'
+      );
+
+      // Assert
+      expect(results).toBeDefined();
+      expect(results.length).toBeGreaterThan(0);
+      expect(results[0]).toBeInstanceOf(ScreeningModel);
+      expect(results[0].theaterId).toBe('theater123');
+      expect(results[0].movieId).toBe('movie123');
+    });
+
+    it('should return empty array if no matching screenings found', async () => {
+      // Act
+      const results = await screeningService.getScreeningByTheaterAndMovieId(
+        'non-existent-theater',
+        'non-existent-movie'
+      );
+
+      // Assert
+      expect(results).toEqual([]);
+    });
+  });
 });

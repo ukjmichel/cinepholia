@@ -56,4 +56,22 @@ export class ScreeningService {
     });
     return deleted > 0;
   }
+
+  /**
+   * Delete a screening by ID.
+   * @param theaterId - The ID of the screening
+   * @param movieId - Tthe ID of the movie
+   * @returns Promise<ScreeningModel[]> - List of matching screenings
+   */
+  async getScreeningByTheaterAndMovieId(
+    theaterId: string,
+    movieId: string
+  ): Promise<ScreeningModel[]> {
+    return await ScreeningModel.findAll({
+      where: {
+        theaterId,
+        movieId,
+      },
+    });
+  }
 }

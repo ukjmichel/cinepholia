@@ -3,7 +3,7 @@ import { ScreeningService } from '../services/screening.service';
 import { ScreeningAttributes } from '../models/screening.model';
 
 // Create a singleton instance of the service
-const screeningService = new ScreeningService();
+export const screeningService = new ScreeningService();
 
 /**
  * Create a new screening
@@ -149,6 +149,37 @@ export const handleDeleteScreening = async (
     res.status(500).json({
       message: 'Failed to delete screening',
       error: (error as Error).message,
+    });
+  }
+};
+
+export const handleSearchScreenings = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const theaterId = req.query.theaterId as string | undefined;
+    const movieId = req.query.movieId as string | undefined;
+
+    if (!theaterId || !movieId) {
+      res.status(400).json({
+        error: 'Missing theaterId or movieId in query parameters',
+      });
+      return;
+    }
+
+    const screenings = await screeningService.getScreeningByTheaterAndMovieId(
+      theaterId,
+      movieId
+    );
+
+    res.status(200).json(screenings);
+  } catch (error) {
+    console.error('Error searching screenings:', error);
+    res.status(500).json({
+      error: 'Failed to search screenings',
+      detail: (error as Error).message,
     });
   }
 };

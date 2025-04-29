@@ -3,7 +3,7 @@ import { body } from 'express-validator';
 const validateCreateMovie = [
   body('title')
     .trim()
-    .escape() // 🛡️ protect against special characters
+    .escape()
     .notEmpty()
     .withMessage('Title is required')
     .isLength({ max: 255 })
@@ -11,7 +11,7 @@ const validateCreateMovie = [
 
   body('description')
     .trim()
-    .escape() // 🛡️ protect
+    .escape()
     .notEmpty()
     .withMessage('Description is required')
     .isLength({ max: 1000 })
@@ -19,15 +19,18 @@ const validateCreateMovie = [
 
   body('ageRating')
     .trim()
-    .escape() // 🛡️ protect
     .notEmpty()
     .withMessage('Age rating is required')
+    .matches(/^\d+\+?$/)
+    .withMessage(
+      'Age rating must be a number optionally followed by "+" (e.g., "13+")'
+    )
     .isLength({ max: 10 })
     .withMessage('Age rating must be at most 10 characters'),
 
   body('genre')
     .trim()
-    .escape() // 🛡️ protect
+    .escape()
     .notEmpty()
     .withMessage('Genre is required')
     .isLength({ max: 100 })
@@ -38,11 +41,11 @@ const validateCreateMovie = [
     .withMessage('Release date is required')
     .isISO8601()
     .withMessage('Release date must be a valid ISO8601 date')
-    .toDate(), // 📅 parsing string to real Date
+    .toDate(),
 
   body('director')
     .trim()
-    .escape() // 🛡️ protect
+    .escape()
     .notEmpty()
     .withMessage('Director is required')
     .isLength({ max: 255 })
@@ -57,7 +60,7 @@ const validateCreateMovie = [
   body('posterUrl')
     .optional()
     .isURL()
-    .withMessage('Poster URL must be a valid URL'), // validate URL (not escape)
+    .withMessage('Poster URL must be a valid URL'),
 ];
 
 export default validateCreateMovie;

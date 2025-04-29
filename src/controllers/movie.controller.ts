@@ -8,7 +8,10 @@ export const movieService = new MovieService();
  * @param req Express request
  * @param res Express response
  */
-export const handleCreateMovie = async (req: Request, res: Response): Promise<void> => {
+export const handleCreateMovie = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
   try {
     const movie = await movieService.createMovie(req.body);
     res.status(201).json({
@@ -72,7 +75,10 @@ export const handleGetAllMovies = async (
  * @param req Express request
  * @param res Express response
  */
-export const handleUpdateMovie = async (req: Request, res: Response): Promise<void> => {
+export const handleUpdateMovie = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
   try {
     const { movieId } = req.params;
     const updatedMovie = await movieService.updateMovie(movieId, req.body);
@@ -96,7 +102,10 @@ export const handleUpdateMovie = async (req: Request, res: Response): Promise<vo
  * @param req Express request
  * @param res Express response
  */
-export const handleDeleteMovie = async (req: Request, res: Response): Promise<void> => {
+export const handleDeleteMovie = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
   try {
     const { movieId } = req.params;
     const deleted = await movieService.deleteMovie(movieId);
@@ -122,12 +131,13 @@ export const handleSearchMovies = async (
   res: Response
 ): Promise<void> => {
   try {
-    const { title, genre, director } = req.query;
+    const { title, genre, director, ageRating } = req.query;
     const searchCriteria: any = {};
 
     if (title) searchCriteria.title = title;
     if (genre) searchCriteria.genre = genre;
     if (director) searchCriteria.director = director;
+    if (ageRating) searchCriteria.ageRating = ageRating; 
 
     const movies = await movieService.searchMovies(searchCriteria);
 

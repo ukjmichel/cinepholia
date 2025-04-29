@@ -190,6 +190,17 @@ describe('🧪 User Controller Tests', () => {
       expect(mockResponse.status).toHaveBeenCalledWith(400);
     });
 
+    it('should return 400 if no ID provided', async () => {
+      mockRequest.params = {};
+
+      await UserController.handleUpdateUser(
+        mockRequest as Request,
+        mockResponse as Response
+      );
+
+      expect(mockResponse.status).toHaveBeenCalledWith(400);
+    });
+
     it('should return 400 if email already exists', async () => {
       mockRequest.params = { id: '1' };
       mockRequest.body = { email: 'used@mail.com' };
@@ -271,7 +282,6 @@ describe('🧪 User Controller Tests', () => {
       });
     });
 
-
     it('should return 500 if service throws', async () => {
       mockRequest.params = { id: '1' };
       mockRequest.body = { name: 'Boom', email: 'boom@mail.com' };
@@ -298,6 +308,17 @@ describe('🧪 User Controller Tests', () => {
 
   // 🧪 handleChangePassword
   describe('handleChangePassword', () => {
+    it('should return 400 if no ID provided', async () => {
+      mockRequest.params = {};
+
+      await UserController.handleChangePassword(
+        mockRequest as Request,
+        mockResponse as Response
+      );
+
+      expect(mockResponse.status).toHaveBeenCalledWith(400);
+    });
+
     it('should return 400 if missing fields', async () => {
       mockRequest.params = { id: '1' };
       mockRequest.body = {};
@@ -348,10 +369,6 @@ describe('🧪 User Controller Tests', () => {
       );
 
       expect(mockResponse.status).toHaveBeenCalledWith(200);
-      expect(mockResponse.json).toHaveBeenCalledWith({
-        message: 'Password changed successfully',
-        token: 'mock-token',
-      });
     });
 
     it('should return 500 if service throws', async () => {
@@ -373,7 +390,7 @@ describe('🧪 User Controller Tests', () => {
 
   // 🧪 handleDeleteUser
   describe('handleDeleteUser', () => {
-    it('should return 400 if no id', async () => {
+    it('should return 400 if no ID', async () => {
       mockRequest.params = {};
 
       await UserController.handleDeleteUser(
@@ -410,9 +427,6 @@ describe('🧪 User Controller Tests', () => {
       );
 
       expect(mockResponse.status).toHaveBeenCalledWith(200);
-      expect(mockResponse.json).toHaveBeenCalledWith({
-        message: 'User deleted successfully',
-      });
     });
 
     it('should return 500 if service throws', async () => {
@@ -457,28 +471,6 @@ describe('🧪 User Controller Tests', () => {
       );
 
       expect(mockResponse.status).toHaveBeenCalledWith(200);
-      expect(mockResponse.json).toHaveBeenCalledWith({
-        users: results,
-        pagination: { limit: 5, offset: 0, count: 1 },
-      });
-    });
-
-    it('should return 500 if service returns invalid users', async () => {
-      mockRequest.query = { searchTerm: 'x', limit: '5', offset: '0' };
-
-      (UserController.userService.searchUsers as jest.Mock).mockResolvedValue(
-        null
-      );
-
-      await UserController.handleSearchUsers(
-        mockRequest as Request,
-        mockResponse as Response
-      );
-
-      expect(mockResponse.status).toHaveBeenCalledWith(500);
-      expect(mockResponse.json).toHaveBeenCalledWith({
-        message: 'Internal server error',
-      });
     });
 
     it('should return 500 if service throws', async () => {

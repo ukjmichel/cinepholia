@@ -5,9 +5,15 @@ import {
   handleGetAllScreenings,
   handleUpdateScreening,
   handleDeleteScreening,
+  handleSearchScreenings,
 } from '../controllers/screening.controller';
 import { authenticateJwt } from '../middlewares/auth.middleware';
 import { Permission } from '../middlewares/authorization.middleware';
+import {
+  validateScreeningIdParam,
+  validateScreeningSearchQuery,
+} from '../validators/screening.validator';
+import handleValidationErrors from '../middlewares/handleValidationErrors.middleware';
 
 const screeningRouter = Router();
 
@@ -94,6 +100,49 @@ screeningRouter.get('/', handleGetAllScreenings);
 
 /**
  * @swagger
+ * /screenings/search:
+ *   get:
+ *     summary: Search screenings by theater and movie
+ *     description: Search screenings by theater ID and movie ID.
+ *     tags: [Screenings]
+ *     parameters:
+ *       - in: query
+ *         name: theaterId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: UUID of the theater
+ *       - in: query
+ *         name: movieId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: UUID of the movie
+ *     responses:
+ *       200:
+ *         description: A list of matching screenings
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 $ref: '#/components/schemas/Screening'
+ *       400:
+ *         description: Validation error (invalid UUID)
+ *       500:
+ *         description: Server error
+ */
+screeningRouter.get(
+  '/search',
+  validateScreeningSearchQuery,
+  handleValidationErrors,
+  handleSearchScreenings
+);
+
+/**
+ * @swagger
  * /screenings/{screeningId}:
  *   get:
  *     summary: Get a screening by ID
@@ -105,7 +154,8 @@ screeningRouter.get('/', handleGetAllScreenings);
  *         required: true
  *         schema:
  *           type: string
- *         description: The ID of the screening
+ *           format: uuid
+ *         description: UUID of the screening
  *     responses:
  *       200:
  *         description: Screening found
@@ -113,12 +163,19 @@ screeningRouter.get('/', handleGetAllScreenings);
  *           application/json:
  *             schema:
  *               $ref: '#/components/schemas/Screening'
+ *       400:
+ *         description: Validation error (invalid UUID)
  *       404:
  *         description: Screening not found
  *       500:
  *         description: Server error
  */
-screeningRouter.get('/:screeningId', handleGetScreeningById);
+screeningRouter.get(
+  '/:screeningId',
+  validateScreeningIdParam,
+  handleValidationErrors,
+  handleGetScreeningById
+);
 
 /**
  * @swagger
@@ -135,7 +192,8 @@ screeningRouter.get('/:screeningId', handleGetScreeningById);
  *         required: true
  *         schema:
  *           type: string
- *         description: ID of the screening to update
+ *           format: uuid
+ *         description: UUID of the screening to update
  *     requestBody:
  *       required: true
  *       content:
@@ -159,7 +217,7 @@ screeningRouter.get('/:screeningId', handleGetScreeningById);
  *       200:
  *         description: Screening updated successfully
  *       400:
- *         description: Validation error
+ *         description: Validation error (invalid UUID)
  *       401:
  *         description: Unauthorized
  *       403:
@@ -173,6 +231,8 @@ screeningRouter.put(
   '/:screeningId',
   authenticateJwt,
   Permission.authorize('employé'),
+  validateScreeningIdParam,
+  handleValidationErrors,
   handleUpdateScreening
 );
 
@@ -191,10 +251,13 @@ screeningRouter.put(
  *         required: true
  *         schema:
  *           type: string
- *         description: ID of the screening to delete
+ *           format: uuid
+ *         description: UUID of the screening to delete
  *     responses:
  *       204:
  *         description: Screening deleted successfully
+ *       400:
+ *         description: Validation error (invalid UUID)
  *       401:
  *         description: Unauthorized
  *       403:
@@ -208,6 +271,8 @@ screeningRouter.delete(
   '/:screeningId',
   authenticateJwt,
   Permission.authorize('employé'),
+  validateScreeningIdParam,
+  handleValidationErrors,
   handleDeleteScreening
 );
 
