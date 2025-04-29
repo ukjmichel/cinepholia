@@ -4,11 +4,10 @@ import movieHallRoutes from '../../routes/movieHall.routes';
 import { MovieHallModel } from '../../models/movieHall.model';
 import { Sequelize } from 'sequelize-typescript';
 
-// Mock middlewares: authenticateJwt + Permission.authorize
+// Mock middlewares
 jest.mock('../../middlewares/auth.middleware', () => ({
   authenticateJwt: (req: any, res: any, next: any) => next(),
 }));
-
 jest.mock('../../middlewares/authorization.middleware', () => ({
   Permission: {
     authorize: () => (req: any, res: any, next: any) => next(),
@@ -35,9 +34,7 @@ describe('MovieHall Routes', () => {
   });
 
   afterAll(async () => {
-    if (sequelize) {
-      await sequelize.close();
-    }
+    await sequelize.close();
   });
 
   beforeEach(async () => {
@@ -60,6 +57,43 @@ describe('MovieHall Routes', () => {
       expect(res.status).toBe(201);
       expect(res.body.data).toHaveProperty('theaterId', 'theater1');
       expect(res.body.data).toHaveProperty('hallId', 'hall1');
+    });
+
+    it('should return 400 for invalid payload', async () => {
+      const res = await request(app).post('/movie-halls').send({
+        theaterId: '',
+        hallId: 123,
+        seatsLayout: 'not-an-array',
+      });
+
+      expect(res.status).toBe(400);
+      expect(res.body.errors).toBeDefined();
+    });
+
+    it('should return 400 for theaterId with spaces', async () => {
+      const res = await request(app)
+        .post('/movie-halls')
+        .send({
+          theaterId: 'theater with spaces',
+          hallId: 'hall1',
+          seatsLayout: [[1, 2, 3]],
+        });
+
+      expect(res.status).toBe(400);
+      expect(res.body.errors).toBeDefined();
+    });
+
+    it('should return 400 for theaterId with special characters', async () => {
+      const res = await request(app)
+        .post('/movie-halls')
+        .send({
+          theaterId: 'theater$special',
+          hallId: 'hall1',
+          seatsLayout: [[1, 2, 3]],
+        });
+
+      expect(res.status).toBe(400);
+      expect(res.body.errors).toBeDefined();
     });
   });
 
@@ -104,6 +138,28 @@ describe('MovieHall Routes', () => {
       expect(res.status).toBe(404);
       expect(res.body.message).toBe('Movie hall not found');
     });
+
+    it('should return 400 for params with special characters', async () => {
+      // Use proper URL encoding for special characters
+      const specialTheaterId = encodeURIComponent('theater###');
+      const specialHallId = encodeURIComponent('hall@@@');
+
+      const res = await request(app).get(
+        `/movie-halls/${specialTheaterId}/${specialHallId}`
+      );
+
+      expect(res.status).toBe(400);
+      expect(res.body.errors).toBeDefined();
+    });
+
+    it('should return 400 for params with spaces', async () => {
+      const res = await request(app).get(
+        '/movie-halls/theater%20with%20space/hall1'
+      );
+
+      expect(res.status).toBe(400);
+      expect(res.body.errors).toBeDefined();
+    });
   });
 
   describe('PUT /movie-halls/:theaterId/:hallId', () => {
@@ -134,6 +190,30 @@ describe('MovieHall Routes', () => {
       expect(res.status).toBe(404);
       expect(res.body.message).toBe('Movie hall not found');
     });
+
+    it('should return 400 if params contain special characters', async () => {
+      // Use proper URL encoding for special characters
+      const specialTheaterId = encodeURIComponent('theater##');
+      const specialHallId = encodeURIComponent('hall!!');
+
+      const res = await request(app)
+        .put(`/movie-halls/${specialTheaterId}/${specialHallId}`)
+        .send({
+          seatsLayout: [[1, 2, 3]],
+        });
+
+      expect(res.status).toBe(400);
+      expect(res.body.errors).toBeDefined();
+    });
+
+    it('should return 400 if payload is invalid', async () => {
+      const res = await request(app).put('/movie-halls/theater4/hall4').send({
+        seatsLayout: 'not-an-array',
+      });
+
+      expect(res.status).toBe(400);
+      expect(res.body.errors).toBeDefined();
+    });
   });
 
   describe('DELETE /movie-halls/:theaterId/:hallId', () => {
@@ -156,6 +236,28 @@ describe('MovieHall Routes', () => {
 
       expect(res.status).toBe(404);
       expect(res.body.message).toBe('Movie hall not found');
+    });
+
+    it('should return 400 for path params with special characters', async () => {
+      // Use proper URL encoding for special characters
+      const specialTheaterId = encodeURIComponent('theater$$$');
+      const specialHallId = encodeURIComponent('hall@@@');
+
+      const res = await request(app).delete(
+        `/movie-halls/${specialTheaterId}/${specialHallId}`
+      );
+
+      expect(res.status).toBe(400);
+      expect(res.body.errors).toBeDefined();
+    });
+
+    it('should return 400 for path params with spaces', async () => {
+      const res = await request(app).delete(
+        '/movie-halls/theater%20space/hall%20space'
+      );
+
+      expect(res.status).toBe(400);
+      expect(res.body.errors).toBeDefined();
     });
   });
 });

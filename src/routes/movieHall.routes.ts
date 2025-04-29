@@ -9,6 +9,12 @@ import {
 
 import { authenticateJwt } from '../middlewares/auth.middleware';
 import { Permission } from '../middlewares/authorization.middleware';
+import {
+  validateCreateMovieHall,
+  validateMovieHallParams,
+  validateUpdateSeatsLayout,
+} from '../validators/hall.validator';
+import handleValidationErrors from '../middlewares/handleValidationErrors.middleware';
 
 const router = Router();
 
@@ -34,8 +40,12 @@ const router = Router();
  *             properties:
  *               theaterId:
  *                 type: string
+ *                 pattern: '^[\\w\\- ]+$'
+ *                 description: Alphanumeric, dashes and spaces allowed
  *               hallId:
  *                 type: string
+ *                 pattern: '^[\\w\\- ]+$'
+ *                 description: Alphanumeric, dashes and spaces allowed
  *               seatsLayout:
  *                 type: array
  *                 items:
@@ -52,6 +62,8 @@ const router = Router();
  */
 router.post(
   '/',
+  validateCreateMovieHall,
+  handleValidationErrors,
   authenticateJwt,
   Permission.authorize('employé'),
   createMovieHall
@@ -70,11 +82,15 @@ router.post(
  *         required: true
  *         schema:
  *           type: string
+ *           pattern: '^[\\w\\- ]+$'
+ *         description: Alphanumeric, dashes and spaces allowed
  *       - in: path
  *         name: hallId
  *         required: true
  *         schema:
  *           type: string
+ *           pattern: '^[\\w\\- ]+$'
+ *         description: Alphanumeric, dashes and spaces allowed
  *     responses:
  *       200:
  *         description: Movie hall found
@@ -83,7 +99,12 @@ router.post(
  *       500:
  *         description: Failed to get movie hall
  */
-router.get('/:theaterId/:hallId', getMovieHall);
+router.get(
+  '/:theaterId/:hallId',
+  validateMovieHallParams, 
+  handleValidationErrors,
+  getMovieHall
+);
 
 /**
  * @swagger
@@ -115,11 +136,15 @@ router.get('/', getAllMovieHalls);
  *         required: true
  *         schema:
  *           type: string
+ *           pattern: '^[\\w\\- ]+$'
+ *         description: Alphanumeric, dashes and spaces allowed
  *       - in: path
  *         name: hallId
  *         required: true
  *         schema:
  *           type: string
+ *           pattern: '^[\\w\\- ]+$'
+ *         description: Alphanumeric, dashes and spaces allowed
  *     requestBody:
  *       required: true
  *       content:
@@ -147,6 +172,8 @@ router.get('/', getAllMovieHalls);
  */
 router.put(
   '/:theaterId/:hallId',
+  validateUpdateSeatsLayout, // ✅ includes both param + body validation
+  handleValidationErrors, // ✅ must be right after validators
   authenticateJwt,
   Permission.authorize('employé'),
   updateSeatsLayout
@@ -167,11 +194,15 @@ router.put(
  *         required: true
  *         schema:
  *           type: string
+ *           pattern: '^[\\w\\- ]+$'
+ *         description: Alphanumeric, dashes and spaces allowed
  *       - in: path
  *         name: hallId
  *         required: true
  *         schema:
  *           type: string
+ *           pattern: '^[\\w\\- ]+$'
+ *         description: Alphanumeric, dashes and spaces allowed
  *     responses:
  *       204:
  *         description: Movie hall deleted
@@ -182,6 +213,8 @@ router.put(
  */
 router.delete(
   '/:theaterId/:hallId',
+  validateMovieHallParams,
+  handleValidationErrors,
   authenticateJwt,
   Permission.authorize('employé'),
   deleteMovieHall
