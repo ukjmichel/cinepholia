@@ -1,43 +1,42 @@
-// src/controllers/user.controller.ts
 import { NextFunction, Request, Response } from 'express';
+import { Role } from '../models/authorization.model';
 import UserService from '../services/user.service';
+import { AuthService } from '../services/auth.service';
+import { AuthorizationService } from '../services/authorization.service';
+import { UserModel } from '../models/user.model';
 
 // Create an instance of the UserService
 export const userService = new UserService();
+export const authService = new AuthService();
+export const authorizationService = new AuthorizationService();
 
-export async function handleCreateUser(
-  req: Request,
-  res: Response,
-  next: NextFunction
-): Promise<void> {
-  const { name, email, password } = req.body;
+export const handleCreateUser =
+  (role: Role) =>
+  async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    const { name, email, password } = req.body;
 
-  if (!name || !email || !password) {
-    res.status(400).json({ message: 'Missing required fields' });
-    return;
-  }
+    try {
+      const emailIsUnique = await userService.isEmailUnique(email);
+      if (!emailIsUnique) {
+        res.status(400).json({ message: 'Email already used' });
+        return;
+      }
 
-  try {
-    const emailIsUnique = await userService.isEmailUnique(email);
-    if (!emailIsUnique) {
-      res.status(400).json({ message: 'Email already exists' });
-      return;
+      const user = await userService.createUser(name, email, password);
+      authorizationService.setRole(user.id, role);
+      const token = authService.generateToken({ ...user, password });
+
+      res.status(201).json({
+        message: 'new account successfully created',
+        data: user,
+        role,
+        token,
+      });
+    } catch (error) {
+      console.error('User creation failed:', error);
+      res.status(500).json({ message: 'Internal server error' });
     }
-
-    const user = await userService.createUser(name, email, password);
-
-    // 👇 Pass user ID in a custom property or params
-    req.params.userId = user.id;
-
-    // 👇 Save full user in res.locals for future use
-    res.locals.user = user;
-
-    next(); // ⬅️ go to next middleware (e.g. setRole)
-  } catch (error) {
-    console.error('User creation failed:', error);
-    res.status(500).json({ message: 'Internal server error' });
-  }
-}
+  };
 
 export async function handleGetUser(req: Request, res: Response): Promise<any> {
   const { id } = req.params;

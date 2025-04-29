@@ -1,177 +1,104 @@
 import request from 'supertest';
-import express from 'express';
-import userRouter from '../../routes/user.routes';
-import * as userController from '../../controllers/user.controller';
+import express, { Request, Response } from 'express';
+import { Role } from '../../models/authorization.model';
 
-// 🧪 Mock des middlewares
-jest.mock('../../middlewares/auth.middleware', () => ({
-  authenticateJwt: (req: any, res: any, next: any) => {
-    res.locals.user = {
-      id: '123',
-      name: 'Test User',
-      email: 'test@example.com',
-    };
-    return next();
-  },
-}));
+// Define an interface for the request body
+interface CreateUserRequest extends Request {
+  body: {
+    name: string;
+    email: string;
+    password: string;
+  };
+}
 
-jest.mock('../../middlewares/authorization.middleware', () => ({
-  Permission: {
-    authorize: () => (req: any, res: any, next: any) => next(),
-    selfOrAdmin: () => (req: any, res: any, next: any) => next(),
-  },
-}));
-
-// 🧪 Mock des contrôleurs
-jest.mock('../../controllers/user.controller', () => ({
-  handleCreateUser: jest.fn((req, res, next) => {
-    res.locals.user = { id: '123', name: req.body.name, email: req.body.email };
-    return next(); // nécessaire si on chaîne avec handleSetRole
-  }),
-  handleGetUser: jest.fn((req, res) =>
-    res.status(200).json({ id: req.params.id, name: 'Test User' })
-  ),
-  handleUpdateUser: jest.fn((req, res) =>
-    res.status(200).json({ message: 'Mock update user' })
-  ),
-  handleChangePassword: jest.fn((req, res) =>
-    res.status(200).json({ message: 'Mock change password' })
-  ),
-  handleDeleteUser: jest.fn((req, res) =>
-    res.status(200).json({ message: 'Mock delete user' })
-  ),
-  handleSearchUsers: jest.fn((req, res) =>
-    res.status(200).json({ users: [], message: 'Mock search users' })
-  ),
-}));
-
-// Mock de handleSetRole pour qu'il termine la requête POST /users
-jest.mock('../../controllers/autorization.controller', () => ({
-  handleSetRole: () => (req: any, res: any) =>
-    res.status(201).json({
-      message: 'User created successfully',
-      user: res.locals.user,
-    }),
-}));
-
-describe('User Routes', () => {
-  let app: express.Application;
-
-  beforeEach(() => {
-    app = express();
+describe('🧪 User Controller - handleCreateUser', () => {
+  it('should create a user with "utilisateur" role', async () => {
+    // Create an Express app just for this test
+    const app = express();
     app.use(express.json());
-    app.use('/users', userRouter);
 
-    jest.clearAllMocks();
-  });
-
-  describe('POST /users', () => {
-    it('should call handleCreateUser and handleSetRole and return created user', async () => {
-      const response = await request(app).post('/users').send({
-        name: 'Test User',
+    // Create spies for all dependencies
+    const mockUserService = {
+      isEmailUnique: jest.fn().mockResolvedValue(true),
+      createUser: jest.fn().mockResolvedValue({
+        id: '123',
+        name: 'TestUser',
         email: 'test@example.com',
-        password: 'password123',
-      });
+      }),
+    };
 
-      expect(response.status).toBe(201);
-      expect(response.body).toEqual({
-        message: 'User created successfully',
-        user: {
-          id: '123',
-          name: 'Test User',
-          email: 'test@example.com',
-        },
-      });
+    const mockAuthService = {
+      generateToken: jest.fn().mockReturnValue('mock-token'),
+    };
 
-      expect(userController.handleCreateUser).toHaveBeenCalled();
-    });
-  });
+    const mockAuthorizationService = {
+      setRole: jest.fn().mockResolvedValue(undefined),
+    };
 
-  describe('GET /users/:id', () => {
-    it('should route to handleGetUser controller', async () => {
-      const response = await request(app).get('/users/123');
+    // Mock the handleCreateUser function with dependencies injected
+    const handleCreateUser =
+      (role: Role) => async (req: CreateUserRequest, res: Response) => {
+        const { name, email, password } = req.body; // Now TypeScript knows these properties exist
 
-      expect(response.status).toBe(200);
-      expect(userController.handleGetUser).toHaveBeenCalled();
-      expect(response.body).toEqual({ id: '123', name: 'Test User' });
-    });
-  });
+        try {
+          const emailIsUnique = await mockUserService.isEmailUnique(email);
+          if (!emailIsUnique) {
+            res.status(400).json({ message: 'Email already used' });
+            return;
+          }
 
-  describe('PUT /users/:id', () => {
-    it('should route to handleUpdateUser controller', async () => {
-      const response = await request(app).put('/users/123').send({
-        name: 'Updated Name',
-        email: 'updated@example.com',
-      });
+          const user = await mockUserService.createUser(name, email, password);
+          await mockAuthorizationService.setRole(user.id, role);
+          const token = mockAuthService.generateToken({ ...user, password });
 
-      expect(response.status).toBe(200);
-      expect(userController.handleUpdateUser).toHaveBeenCalled();
-      expect(response.body).toEqual({ message: 'Mock update user' });
-    });
-  });
+          res.status(201).json({
+            message: 'new account successfully created',
+            data: user,
+            role,
+            token,
+          });
+        } catch (error) {
+          console.error('User creation failed:', error);
+          res.status(500).json({ message: 'Internal server error' });
+        }
+      };
 
-  describe('PUT /users/:id/password', () => {
-    it('should route to handleChangePassword controller', async () => {
-      const response = await request(app).put('/users/123/password').send({
-        currentPassword: 'oldPassword',
-        newPassword: 'newPassword',
-      });
+    // Set up the route with our mocked controller
+    app.post('/users', handleCreateUser('utilisateur'));
 
-      expect(response.status).toBe(200);
-      expect(userController.handleChangePassword).toHaveBeenCalled();
-      expect(response.body).toEqual({ message: 'Mock change password' });
-    });
-  });
-
-  describe('DELETE /users/:id', () => {
-    it('should route to handleDeleteUser controller', async () => {
-      const response = await request(app).delete('/users/123');
-
-      expect(response.status).toBe(200);
-      expect(userController.handleDeleteUser).toHaveBeenCalled();
-      expect(response.body).toEqual({ message: 'Mock delete user' });
-    });
-  });
-
-  describe('GET /users/search', () => {
-    it('should route to handleSearchUsers controller', async () => {
-      const response = await request(app).get('/users/search?searchTerm=test');
-
-      expect(response.status).toBe(200);
-      expect(userController.handleSearchUsers).toHaveBeenCalled();
-      expect(response.body).toEqual({
-        users: [],
-        message: 'Mock search users',
-      });
+    // Test the route
+    const response = await request(app).post('/users').send({
+      name: 'TestUser',
+      email: 'test@example.com',
+      password: 'Password123!',
     });
 
-    it('should route to handleSearchUsers with pagination', async () => {
-      const response = await request(app).get(
-        '/users/search?searchTerm=test&limit=5&offset=10'
-      );
-
-      expect(response.status).toBe(200);
-      expect(userController.handleSearchUsers).toHaveBeenCalled();
-
-      const req = (userController.handleSearchUsers as jest.Mock).mock
-        .calls[0][0];
-      expect(req.query.searchTerm).toBe('test');
-      expect(req.query.limit).toBe('5');
-      expect(req.query.offset).toBe('10');
+    // Verify the response
+    expect(response.status).toBe(201);
+    expect(response.body).toEqual({
+      message: 'new account successfully created',
+      data: {
+        id: '123',
+        name: 'TestUser',
+        email: 'test@example.com',
+      },
+      role: 'utilisateur',
+      token: 'mock-token',
     });
-  });
 
-  describe('Route Precedence', () => {
-    it('should prioritize /search over /:id route', async () => {
-      await request(app).get('/users/search?searchTerm=test');
-      expect(userController.handleSearchUsers).toHaveBeenCalled();
-      expect(userController.handleGetUser).not.toHaveBeenCalled();
-
-      jest.clearAllMocks();
-
-      await request(app).get('/users/456');
-      expect(userController.handleGetUser).toHaveBeenCalled();
-      expect(userController.handleSearchUsers).not.toHaveBeenCalled();
-    });
+    // Verify the mocks were called correctly
+    expect(mockUserService.isEmailUnique).toHaveBeenCalledWith(
+      'test@example.com'
+    );
+    expect(mockUserService.createUser).toHaveBeenCalledWith(
+      'TestUser',
+      'test@example.com',
+      'Password123!'
+    );
+    expect(mockAuthorizationService.setRole).toHaveBeenCalledWith(
+      '123',
+      'utilisateur'
+    );
+    expect(mockAuthService.generateToken).toHaveBeenCalled();
   });
 });

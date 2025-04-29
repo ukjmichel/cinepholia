@@ -96,6 +96,8 @@ export class Permission {
     };
   }
 
+  
+
   /**
    * Middleware to allow access if user is self or has role 'employé' or 'administrateur'.
    */

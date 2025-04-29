@@ -1,4 +1,5 @@
 // src/__tests__/seatBooking/seatBooking.controller.spec.ts
+
 import { Request, Response } from 'express';
 import {
   handleCreateSeatBooking,
@@ -8,6 +9,7 @@ import {
   handleDeleteSeatBooking,
 } from '../../controllers/seatBooking.controller';
 import { SeatBookingService } from '../../services/seatBooking.service';
+import { SeatBookingAttributes } from '../../models/seatBooking.model';
 
 // 🧪 Mock SeatBookingService
 jest.mock('../../services/seatBooking.service');
@@ -57,16 +59,17 @@ describe('SeatBooking Controller', () => {
   });
 
   it('should create a seat booking successfully', async () => {
-    const mockBooking = { seatId: 'A1' };
+    const mockBooking: SeatBookingAttributes = {
+      screeningId: 'screening-id',
+      bookingId: 'booking-id',
+      seatId: 'A1',
+    };
+
     (
       MockSeatBookingService.prototype.createSeatBooking as jest.Mock
     ).mockResolvedValue(mockBooking);
 
-    req.body = {
-      screeningId: 'screening-id',
-      seatId: 'A1',
-      bookingId: 'booking-id',
-    };
+    req.body = mockBooking;
 
     await handleCreateSeatBooking(req as Request, res as Response, next);
 
@@ -75,7 +78,12 @@ describe('SeatBooking Controller', () => {
   });
 
   it('should fetch a seat booking by screeningId and seatId', async () => {
-    const mockSeat = { seatId: 'A1' };
+    const mockSeat: SeatBookingAttributes = {
+      screeningId: 'screening-id',
+      bookingId: 'booking-id',
+      seatId: 'A1',
+    };
+
     (
       MockSeatBookingService.prototype
         .getSeatBookingByScreeningIdAndSeatId as jest.Mock
@@ -112,9 +120,17 @@ describe('SeatBooking Controller', () => {
   });
 
   it('should fetch seat bookings by bookingId', async () => {
+    const mockBookings: SeatBookingAttributes[] = [
+      {
+        screeningId: 'screening-id',
+        bookingId: 'booking-id',
+        seatId: 'A2',
+      },
+    ];
+
     (
       MockSeatBookingService.prototype.getSeatBookingsByBookingId as jest.Mock
-    ).mockResolvedValue([{ seatId: 'A2' }]);
+    ).mockResolvedValue(mockBookings);
 
     req.params = { bookingId: 'booking-id' };
 
@@ -125,13 +141,21 @@ describe('SeatBooking Controller', () => {
     );
 
     expect(mockStatus).toHaveBeenCalledWith(200);
-    expect(mockJson).toHaveBeenCalledWith([{ seatId: 'A2' }]);
+    expect(mockJson).toHaveBeenCalledWith(mockBookings);
   });
 
   it('should fetch seat bookings by screeningId', async () => {
+    const mockBookings: SeatBookingAttributes[] = [
+      {
+        screeningId: 'screening-id',
+        bookingId: 'booking-id',
+        seatId: 'A3',
+      },
+    ];
+
     (
       MockSeatBookingService.prototype.getSeatBookingsByScreeningId as jest.Mock
-    ).mockResolvedValue([{ seatId: 'A3' }]);
+    ).mockResolvedValue(mockBookings);
 
     req.params = { screeningId: 'screening-id' };
 
@@ -142,7 +166,7 @@ describe('SeatBooking Controller', () => {
     );
 
     expect(mockStatus).toHaveBeenCalledWith(200);
-    expect(mockJson).toHaveBeenCalledWith([{ seatId: 'A3' }]);
+    expect(mockJson).toHaveBeenCalledWith(mockBookings);
   });
 
   it('should delete a seat booking', async () => {
@@ -170,4 +194,102 @@ describe('SeatBooking Controller', () => {
     expect(mockStatus).toHaveBeenCalledWith(404);
     expect(mockJson).toHaveBeenCalled();
   });
+
+  it('should handle error when creating seat booking', async () => {
+    (
+      MockSeatBookingService.prototype.createSeatBooking as jest.Mock
+    ).mockRejectedValue(new Error('Boom'));
+
+    req.body = {
+      screeningId: 'screening-id',
+      bookingId: 'booking-id',
+      seatId: 'A1',
+    };
+
+    await handleCreateSeatBooking(req as Request, res as Response, next);
+
+    expect(mockStatus).toHaveBeenCalledWith(500);
+    expect(mockJson).toHaveBeenCalledWith({
+      message: 'Failed to create seat booking',
+      error: 'Boom',
+    });
+  });
+
+  it('should handle error when fetching seat booking by screeningId and seatId', async () => {
+    (
+      MockSeatBookingService.prototype
+        .getSeatBookingByScreeningIdAndSeatId as jest.Mock
+    ).mockRejectedValue(new Error('Boom'));
+
+    req.params = { screeningId: 'screening-id', seatId: 'A1' };
+
+    await handleGetSeatBookingByScreeningAndSeat(
+      req as Request,
+      res as Response,
+      next
+    );
+
+    expect(mockStatus).toHaveBeenCalledWith(500);
+    expect(mockJson).toHaveBeenCalledWith({
+      message: 'Failed to fetch seat booking',
+      error: 'Boom',
+    });
+  });
+
+  it('should handle error when fetching seat bookings by bookingId', async () => {
+    (
+      MockSeatBookingService.prototype.getSeatBookingsByBookingId as jest.Mock
+    ).mockRejectedValue(new Error('Boom'));
+
+    req.params = { bookingId: 'booking-id' };
+
+    await handleGetSeatBookingsByBookingId(
+      req as Request,
+      res as Response,
+      next
+    );
+
+    expect(mockStatus).toHaveBeenCalledWith(500);
+    expect(mockJson).toHaveBeenCalledWith({
+      message: 'Failed to fetch seat bookings',
+      error: 'Boom',
+    });
+  });
+
+  it('should handle error when fetching seat bookings by screeningId', async () => {
+    (
+      MockSeatBookingService.prototype.getSeatBookingsByScreeningId as jest.Mock
+    ).mockRejectedValue(new Error('Boom'));
+
+    req.params = { screeningId: 'screening-id' };
+
+    await handleGetSeatBookingsByScreeningId(
+      req as Request,
+      res as Response,
+      next
+    );
+
+    expect(mockStatus).toHaveBeenCalledWith(500);
+    expect(mockJson).toHaveBeenCalledWith({
+      message: 'Failed to fetch seat bookings',
+      error: 'Boom',
+    });
+  });
+
+  it('should handle error when deleting seat booking', async () => {
+    (
+      MockSeatBookingService.prototype.deleteSeatBooking as jest.Mock
+    ).mockRejectedValue(new Error('Boom'));
+
+    req.params = { screeningId: 'screening-id', seatId: 'A1' };
+
+    await handleDeleteSeatBooking(req as Request, res as Response, next);
+
+    expect(mockStatus).toHaveBeenCalledWith(500);
+    expect(mockJson).toHaveBeenCalledWith({
+      message: 'Failed to delete seat booking',
+      error: 'Boom',
+    });
+  });
+
 });
