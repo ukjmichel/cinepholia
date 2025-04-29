@@ -40,11 +40,13 @@ describe('ScreeningService', () => {
     // Create prerequisite data
     await MovieModel.create({
       movieId: 'movie123',
-      name: 'Inception',
+      title: 'Inception', // 🔥 Correct: title (not name)
       description: 'A mind-bending thriller',
-      age: '13+',
+      ageRating: 'PG-13', // 🔥 Correct: ageRating (not age)
       genre: 'Sci-Fi',
-      date: new Date('2010-07-16'),
+      releaseDate: new Date('2010-07-16'), // 🔥 Correct: releaseDate (not date)
+      director: 'Christopher Nolan', // 🔥 Required new fields
+      durationMinutes: 148,
     });
 
     await MovieTheaterModel.create({

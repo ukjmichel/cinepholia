@@ -15,7 +15,6 @@ describe('MovieService', () => {
     });
 
     await sequelize.sync({ force: true });
-
     movieService = new MovieService();
   });
 
@@ -32,34 +31,39 @@ describe('MovieService', () => {
   it('should create a movie', async () => {
     const movieData = {
       movieId: 'movie123',
-      name: 'Inception',
+      title: 'Inception',
       description: 'A mind-bending thriller',
-      age: 'PG-13',
+      ageRating: 'PG-13',
       genre: 'Sci-Fi',
-      date: new Date('2010-07-16'),
+      releaseDate: new Date('2010-07-16'),
+      director: 'Christopher Nolan',
+      durationMinutes: 148,
     };
 
     const movie = await movieService.createMovie(movieData);
 
     expect(movie).toBeDefined();
     expect(movie.movieId).toBe('movie123');
-    expect(movie.name).toBe('Inception');
+    expect(movie.title).toBe('Inception');
+    expect(movie.director).toBe('Christopher Nolan');
   });
 
   it('should get a movie by ID', async () => {
-    const movie = await MovieModel.create({
+    await MovieModel.create({
       movieId: 'movie456',
-      name: 'Interstellar',
+      title: 'Interstellar',
       description: 'A journey through space and time',
-      age: 'PG-13',
+      ageRating: 'PG-13',
       genre: 'Sci-Fi',
-      date: new Date('2014-11-07'),
+      releaseDate: new Date('2014-11-07'),
+      director: 'Christopher Nolan',
+      durationMinutes: 169,
     });
 
     const foundMovie = await movieService.getMovieById('movie456');
 
     expect(foundMovie).toBeDefined();
-    expect(foundMovie?.name).toBe('Interstellar');
+    expect(foundMovie?.title).toBe('Interstellar');
   });
 
   it('should return null if movie not found by ID', async () => {
@@ -71,19 +75,23 @@ describe('MovieService', () => {
     await MovieModel.bulkCreate([
       {
         movieId: 'movie1',
-        name: 'Movie One',
-        description: 'Description One',
-        age: 'PG',
+        title: 'Movie One',
+        description: 'First description',
+        ageRating: 'PG',
         genre: 'Drama',
-        date: new Date(),
+        releaseDate: new Date(),
+        director: 'Director One',
+        durationMinutes: 120,
       },
       {
         movieId: 'movie2',
-        name: 'Movie Two',
-        description: 'Description Two',
-        age: 'R',
+        title: 'Movie Two',
+        description: 'Second description',
+        ageRating: 'R',
         genre: 'Horror',
-        date: new Date(),
+        releaseDate: new Date(),
+        director: 'Director Two',
+        durationMinutes: 100,
       },
     ]);
 
@@ -92,40 +100,45 @@ describe('MovieService', () => {
   });
 
   it('should update a movie', async () => {
-    const movie = await MovieModel.create({
+    await MovieModel.create({
       movieId: 'movieToUpdate',
-      name: 'Old Name',
-      description: 'Old Description',
-      age: 'PG',
-      genre: 'Drama',
-      date: new Date(),
+      title: 'Old Title',
+      description: 'Old description',
+      ageRating: 'PG',
+      genre: 'Adventure',
+      releaseDate: new Date(),
+      director: 'Old Director',
+      durationMinutes: 90,
     });
 
     const updatedMovie = await movieService.updateMovie('movieToUpdate', {
-      name: 'New Name',
-      description: 'Updated Description',
+      title: 'New Title',
+      description: 'Updated description',
     });
 
     expect(updatedMovie).toBeDefined();
-    expect(updatedMovie?.name).toBe('New Name');
-    expect(updatedMovie?.description).toBe('Updated Description');
+    expect(updatedMovie?.title).toBe('New Title');
+    expect(updatedMovie?.description).toBe('Updated description');
   });
 
   it('should return null when updating a non-existing movie', async () => {
     const updatedMovie = await movieService.updateMovie('nonexistent-id', {
-      name: 'Updated Name',
+      title: 'Updated Title',
     });
+
     expect(updatedMovie).toBeNull();
   });
 
   it('should delete a movie', async () => {
     await MovieModel.create({
       movieId: 'movieToDelete',
-      name: 'Delete Me',
-      description: 'To be deleted',
-      age: 'PG',
+      title: 'Delete Me',
+      description: 'This will be deleted',
+      ageRating: 'PG',
       genre: 'Drama',
-      date: new Date(),
+      releaseDate: new Date(),
+      director: 'Director Delete',
+      durationMinutes: 95,
     });
 
     const deleted = await movieService.deleteMovie('movieToDelete');

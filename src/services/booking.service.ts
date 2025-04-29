@@ -39,7 +39,8 @@ export class BookingService {
   ): Promise<BookingModel | null> {
     const booking = await BookingModel.findByPk(bookingId);
     if (!booking) return null;
-    return booking.update(updateData);
+    await booking.update(updateData);
+    return booking;
   }
 
   /**

@@ -1,18 +1,18 @@
 import { Sequelize } from 'sequelize-typescript';
 import { MovieModel } from '../../models/movie.model';
 
-describe('MovieModel', () => {
+describe('🧪 MovieModel', () => {
   let sequelize: Sequelize;
 
   beforeAll(async () => {
     sequelize = new Sequelize({
       dialect: 'sqlite',
-      storage: ':memory:',
+      storage: ':memory:', // In-memory DB for testing
       logging: false,
       models: [MovieModel],
     });
 
-    await sequelize.sync({ force: true });
+    await sequelize.sync({ force: true }); // Sync all models
   });
 
   afterAll(async () => {
@@ -22,35 +22,43 @@ describe('MovieModel', () => {
   });
 
   beforeEach(async () => {
-    await MovieModel.destroy({ where: {}, truncate: true, cascade: true });
+    await MovieModel.destroy({ where: {}, truncate: true, cascade: true }); // Clean the table
   });
 
   it('should create a movie with valid attributes', async () => {
     const movie = await MovieModel.create({
       movieId: 'movie123',
-      name: 'Inception',
+      title: 'Inception',
       description: 'A mind-bending thriller',
-      age: 'PG-13',
+      ageRating: 'PG-13',
       genre: 'Sci-Fi',
-      date: new Date('2010-07-16'),
+      releaseDate: new Date('2010-07-16'),
+      director: 'Christopher Nolan',
+      durationMinutes: 148,
+      posterUrl: 'https://example.com/poster.jpg',
     });
 
     expect(movie).toBeDefined();
     expect(movie.movieId).toBe('movie123');
-    expect(movie.name).toBe('Inception');
+    expect(movie.title).toBe('Inception');
     expect(movie.genre).toBe('Sci-Fi');
-    expect(movie.age).toBe('PG-13');
+    expect(movie.ageRating).toBe('PG-13');
+    expect(movie.director).toBe('Christopher Nolan');
+    expect(movie.durationMinutes).toBe(148);
+    expect(movie.posterUrl).toBe('https://example.com/poster.jpg');
   });
 
-  it('should fail if name is missing', async () => {
+  it('should fail if title is missing', async () => {
     await expect(
       MovieModel.create({
         movieId: 'movie456',
-        description: 'No name provided',
-        age: 'PG-13',
+        description: 'No title provided',
+        ageRating: 'PG-13',
         genre: 'Drama',
-        date: new Date(),
-      } as any) // 👈 explicitly cast as 'any' to allow partial object
+        releaseDate: new Date(),
+        director: 'Unknown',
+        durationMinutes: 120,
+      } as any) // forced as 'any' to allow missing fields
     ).rejects.toThrow();
   });
 
@@ -58,10 +66,12 @@ describe('MovieModel', () => {
     await expect(
       MovieModel.create({
         movieId: 'movie789',
-        name: 'No Description',
-        age: 'PG-13',
+        title: 'No Description',
+        ageRating: 'PG-13',
         genre: 'Action',
-        date: new Date(),
+        releaseDate: new Date(),
+        director: 'Unknown',
+        durationMinutes: 90,
       } as any)
     ).rejects.toThrow();
   });
@@ -69,21 +79,25 @@ describe('MovieModel', () => {
   it('should enforce unique movieId constraint', async () => {
     await MovieModel.create({
       movieId: 'uniqueId',
-      name: 'First Movie',
+      title: 'First Movie',
       description: 'First entry',
-      age: 'PG',
+      ageRating: 'PG',
       genre: 'Adventure',
-      date: new Date(),
+      releaseDate: new Date(),
+      director: 'First Director',
+      durationMinutes: 100,
     });
 
     await expect(
       MovieModel.create({
         movieId: 'uniqueId', // duplicate ID
-        name: 'Second Movie',
+        title: 'Second Movie',
         description: 'Second entry',
-        age: 'PG-13',
+        ageRating: 'PG-13',
         genre: 'Comedy',
-        date: new Date(),
+        releaseDate: new Date(),
+        director: 'Second Director',
+        durationMinutes: 110,
       })
     ).rejects.toThrow();
   });

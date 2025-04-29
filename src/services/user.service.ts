@@ -2,39 +2,36 @@ import { UserInterface } from '../interfaces/user.interface';
 import { UserModel } from '../models/user.model';
 import { Op } from 'sequelize';
 
+/**
+ * Service class for managing users.
+ */
 export default class UserService {
   /**
-   * Creates a new user and adds it to the database.
-   * The password will be hashed by the model's BeforeCreate hook.
-   * @param name The full name of the user.
-   * @param email The user's email address.
-   * @param password The user's password (will be hashed by model hooks).
-   * @returns The newly created user.
+   * Creates a new user in the database.
+   * Password hashing is automatically handled by Sequelize hooks.
+   *
+   * @param name - The user's full name.
+   * @param email - The user's email address.
+   * @param password - The user's plain password (will be hashed).
+   * @returns The newly created user without the password field.
    */
   async createUser(
     name: string,
     email: string,
     password: string
   ): Promise<Omit<UserInterface, 'password'>> {
-    // Create user in database using Sequelize
-    // Password hashing is handled by the model's BeforeCreate hook
-    const newUser = await UserModel.create({
-      name,
-      email,
-      password,
-    });
+    const newUser = await UserModel.create({ name, email, password });
 
-    // Return user data without password
     const userData = newUser.get({ plain: true }) as UserInterface;
     const { password: _, ...userWithoutPassword } = userData;
-
     return userWithoutPassword;
   }
 
   /**
-   * Checks if the provided email is already used by another user.
-   * @param email The email to check.
-   * @returns True if the email is available, false if it already exists.
+   * Checks if an email address is already registered.
+   *
+   * @param email - Email to check.
+   * @returns True if the email is unique, false if already taken.
    */
   async isEmailUnique(email: string): Promise<boolean> {
     const existingUser = await UserModel.findOne({ where: { email } });
@@ -42,9 +39,10 @@ export default class UserService {
   }
 
   /**
-   * Finds a user by their ID.
-   * @param id The user's ID.
-   * @returns The user (without password) or null if not found.
+   * Retrieves a user by their ID.
+   *
+   * @param id - The user's ID.
+   * @returns The user data without password, or null if not found.
    */
   async getUserById(
     id: string
@@ -52,17 +50,16 @@ export default class UserService {
     const user = await UserModel.findByPk(id);
     if (!user) return null;
 
-    // Return data without password
     const userData = user.get({ plain: true }) as UserInterface;
     const { password: _, ...userWithoutPassword } = userData;
-
     return userWithoutPassword;
   }
 
   /**
-   * Finds a user by their email.
-   * @param email The user's email address.
-   * @returns The user (without password) or null if not found.
+   * Retrieves a user by their email.
+   *
+   * @param email - The user's email address.
+   * @returns The user data without password, or null if not found.
    */
   async getUserByEmail(
     email: string
@@ -72,21 +69,20 @@ export default class UserService {
 
     const userData = user.get({ plain: true }) as UserInterface;
     const { password: _, ...userWithoutPassword } = userData;
-
     return userWithoutPassword;
   }
 
   /**
-   * Updates a user's information.
-   * @param id The user's ID.
-   * @param userData The data to update (name, email).
-   * @returns The updated user (without password) or null if not found.
+   * Updates a user's name and/or email.
+   *
+   * @param id - The user's ID.
+   * @param userData - Fields to update (name and/or email).
+   * @returns The updated user without password, or null if not found.
    */
   async updateUser(
     id: string,
     userData: Partial<UserInterface>
   ): Promise<Omit<UserInterface, 'password'> | null> {
-    // Extract password from update data to prevent updating it directly
     const { password: _, ...updateData } = userData;
 
     const [updatedCount] = await UserModel.update(updateData, {
@@ -99,11 +95,13 @@ export default class UserService {
   }
 
   /**
-   * Changes a user's password.
-   * @param id The user's ID.
-   * @param currentPassword The current password for verification.
-   * @param newPassword The new password to set.
-   * @returns True if password was changed successfully, false otherwise.
+   * Changes the user's password.
+   * Verifies the current password before applying the new one.
+   *
+   * @param id - The user's ID.
+   * @param currentPassword - The current password for verification.
+   * @param newPassword - The new password to set.
+   * @returns True if the password was changed, false otherwise.
    */
   async changePassword(
     id: string,
@@ -113,36 +111,32 @@ export default class UserService {
     const user = await UserModel.findByPk(id);
     if (!user) return false;
 
-    // Verify current password
     const isValid = await user.validatePassword(currentPassword);
     if (!isValid) return false;
 
-    // Update password (will be hashed by BeforeUpdate hook)
     user.password = newPassword;
     await user.save();
-
     return true;
   }
 
   /**
-   * Deletes a user from the database.
-   * @param id The user's ID.
-   * @returns True if user was deleted, false if not found.
+   * Deletes a user by their ID.
+   *
+   * @param id - The user's ID.
+   * @returns True if the user was deleted, false otherwise.
    */
   async deleteUser(id: string): Promise<boolean> {
-    const deletedCount = await UserModel.destroy({
-      where: { id },
-    });
-
+    const deletedCount = await UserModel.destroy({ where: { id } });
     return deletedCount > 0;
   }
 
   /**
-   * Finds users matching search criteria.
-   * @param searchTerm The search term to match against name or email.
-   * @param limit Optional limit on number of results.
-   * @param offset Optional offset for pagination.
-   * @returns Array of users (without passwords) matching criteria.
+   * Searches users by name or email.
+   *
+   * @param searchTerm - Text to search in name or email.
+   * @param limit - Maximum number of results to return.
+   * @param offset - How many results to skip (for pagination).
+   * @returns An array of users without password fields.
    */
   async searchUsers(
     searchTerm: string,
@@ -158,7 +152,7 @@ export default class UserService {
       },
       limit,
       offset,
-      attributes: { exclude: ['password'] }, // Don't return passwords
+      attributes: { exclude: ['password'] },
     });
 
     return users.map((user) => {
