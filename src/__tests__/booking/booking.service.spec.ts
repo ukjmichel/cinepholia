@@ -60,11 +60,13 @@ describe('BookingService', () => {
 
     const movie = await MovieModel.create({
       movieId: 'movie-uuid',
-      name: 'Test Movie',
+      title: 'Test Movie', // 🛠️ corrected here: title instead of name
       description: 'A mind-bending thriller',
-      age: 'PG-13',
+      ageRating: 'PG-13', // 🛠️ corrected: age -> ageRating
       genre: 'Sci-Fi',
-      date: new Date(),
+      releaseDate: new Date(), // 🛠️ corrected: date -> releaseDate
+      director: 'Christopher Nolan', // 🛠️ added required field: director
+      durationMinutes: 120, // 🛠️ added required field: durationMinutes
     });
 
     const theater = await MovieTheaterModel.create({

@@ -45,12 +45,14 @@ describe('SeatBookingModel', () => {
     });
 
     const movie = await MovieModel.create({
-      movieId: uuidv4(), // ✅
-      name: 'TestMovie',
-      description: 'An awesome movie',
-      age: 'PG-13',
-      genre: 'Action',
-      date: new Date(),
+      movieId: uuidv4(),
+      title: 'Interstellar', // 🔥 Correct: title (was name)
+      description: 'Space journey',
+      ageRating: 'PG-13', // 🔥 Correct: ageRating (was age)
+      genre: 'Sci-Fi',
+      releaseDate: new Date('2014-11-07'), // 🔥 Correct: releaseDate (was date)
+      director: 'Christopher Nolan', // 🔥 Add mandatory field
+      durationMinutes: 169, // 🔥 Add mandatory field
     });
 
     const theater = await MovieTheaterModel.create({

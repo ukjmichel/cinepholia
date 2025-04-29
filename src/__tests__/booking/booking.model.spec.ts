@@ -14,16 +14,16 @@ describe('BookingModel', () => {
       dialect: 'sqlite',
       storage: ':memory:',
       logging: false,
+      models: [
+        UserModel,
+        MovieModel,
+        MovieTheaterModel,
+        MovieHallModel,
+        ScreeningModel,
+        BookingModel,
+      ],
     });
 
-    sequelize.addModels([
-      UserModel,
-      MovieModel,
-      MovieTheaterModel,
-      MovieHallModel,
-      ScreeningModel,
-      BookingModel,
-    ]);
     await sequelize.sync({ force: true });
   });
 
@@ -31,7 +31,18 @@ describe('BookingModel', () => {
     await sequelize.close();
   });
 
-  it('should create a booking with default status "pending"', async () => {
+  beforeEach(async () => {
+    await Promise.all([
+      BookingModel.destroy({ where: {}, truncate: true, cascade: true }),
+      ScreeningModel.destroy({ where: {}, truncate: true, cascade: true }),
+      MovieHallModel.destroy({ where: {}, truncate: true, cascade: true }),
+      MovieTheaterModel.destroy({ where: {}, truncate: true, cascade: true }),
+      MovieModel.destroy({ where: {}, truncate: true, cascade: true }),
+      UserModel.destroy({ where: {}, truncate: true, cascade: true }),
+    ]);
+  });
+
+  async function createFullDependencies() {
     const user = await UserModel.create({
       id: 'user-uuid',
       name: 'TestUser',
@@ -40,16 +51,18 @@ describe('BookingModel', () => {
     });
 
     const movie = await MovieModel.create({
-      movieId: 'dummy-movie-id',
-      name: 'Test Movie',
+      movieId: 'movie-uuid',
+      title: 'Test Movie',
       description: 'A mind-bending thriller',
-      age: 'PG-13',
+      ageRating: 'PG-13',
       genre: 'Sci-Fi',
-      date: new Date(),
+      releaseDate: new Date('2024-01-01'),
+      director: 'Test Director',
+      durationMinutes: 120,
     });
 
     const theater = await MovieTheaterModel.create({
-      theaterId: 'dummy-theater-id',
+      theaterId: 'theater-uuid',
       address: '123 Test St',
       postalCode: '12345',
       city: 'Test City',
@@ -58,7 +71,7 @@ describe('BookingModel', () => {
     });
 
     const hall = await MovieHallModel.create({
-      hallId: 'dummy-hall-id',
+      hallId: 'hall-uuid',
       theaterId: theater.theaterId,
       seatsLayout: [
         [1, 1, 1, 1, 1],
@@ -73,8 +86,14 @@ describe('BookingModel', () => {
       theaterId: theater.theaterId,
       hallId: hall.hallId,
       startTime: new Date(),
-      durationTime: new Date(),
+      durationTime: new Date('1970-01-01T02:00:00Z'),
     });
+
+    return { user, screening };
+  }
+
+  it('should create a booking with default status "pending"', async () => {
+    const { user, screening } = await createFullDependencies();
 
     const booking = await BookingModel.create({
       userId: user.id,
@@ -88,24 +107,36 @@ describe('BookingModel', () => {
   });
 
   it('should update booking status to "used"', async () => {
-    const booking = await BookingModel.findOne();
-    expect(booking).toBeDefined();
+    const { user, screening } = await createFullDependencies();
 
-    booking!.status = 'used';
-    await booking!.save();
+    const booking = await BookingModel.create({
+      userId: user.id,
+      screeningId: screening.screeningId,
+      bookingDate: new Date(),
+      seatsNumber: 2,
+    });
 
-    const updatedBooking = await BookingModel.findByPk(booking!.bookingId);
-    expect(updatedBooking!.status).toBe('used');
+    booking.status = 'used';
+    await booking.save();
+
+    const updatedBooking = await BookingModel.findByPk(booking.bookingId);
+    expect(updatedBooking?.status).toBe('used');
   });
 
   it('should update booking status to "canceled"', async () => {
-    const booking = await BookingModel.findOne();
-    expect(booking).toBeDefined();
+    const { user, screening } = await createFullDependencies();
 
-    booking!.status = 'canceled';
-    await booking!.save();
+    const booking = await BookingModel.create({
+      userId: user.id,
+      screeningId: screening.screeningId,
+      bookingDate: new Date(),
+      seatsNumber: 2,
+    });
 
-    const updatedBooking = await BookingModel.findByPk(booking!.bookingId);
-    expect(updatedBooking!.status).toBe('canceled');
+    booking.status = 'canceled';
+    await booking.save();
+
+    const updatedBooking = await BookingModel.findByPk(booking.bookingId);
+    expect(updatedBooking?.status).toBe('canceled');
   });
 });

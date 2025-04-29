@@ -25,7 +25,7 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">100% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>10/10</span>
+                <span class='fraction'>13/13</span>
             </div>
         
             
@@ -46,7 +46,7 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">100% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>8/8</span>
+                <span class='fraction'>11/11</span>
             </div>
         
             
@@ -132,7 +132,35 @@
 <a name='L67'></a><a href='#L67'>67</a>
 <a name='L68'></a><a href='#L68'>68</a>
 <a name='L69'></a><a href='#L69'>69</a>
-<a name='L70'></a><a href='#L70'>70</a></td><td class="line-coverage quiet"><span class="cline-any cline-yes">15x</span>
+<a name='L70'></a><a href='#L70'>70</a>
+<a name='L71'></a><a href='#L71'>71</a>
+<a name='L72'></a><a href='#L72'>72</a>
+<a name='L73'></a><a href='#L73'>73</a>
+<a name='L74'></a><a href='#L74'>74</a>
+<a name='L75'></a><a href='#L75'>75</a>
+<a name='L76'></a><a href='#L76'>76</a>
+<a name='L77'></a><a href='#L77'>77</a>
+<a name='L78'></a><a href='#L78'>78</a>
+<a name='L79'></a><a href='#L79'>79</a>
+<a name='L80'></a><a href='#L80'>80</a>
+<a name='L81'></a><a href='#L81'>81</a>
+<a name='L82'></a><a href='#L82'>82</a>
+<a name='L83'></a><a href='#L83'>83</a>
+<a name='L84'></a><a href='#L84'>84</a>
+<a name='L85'></a><a href='#L85'>85</a>
+<a name='L86'></a><a href='#L86'>86</a>
+<a name='L87'></a><a href='#L87'>87</a>
+<a name='L88'></a><a href='#L88'>88</a>
+<a name='L89'></a><a href='#L89'>89</a>
+<a name='L90'></a><a href='#L90'>90</a>
+<a name='L91'></a><a href='#L91'>91</a>
+<a name='L92'></a><a href='#L92'>92</a>
+<a name='L93'></a><a href='#L93'>93</a></td><td class="line-coverage quiet"><span class="cline-any cline-yes">15x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -162,6 +190,24 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">15x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">15x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">15x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -211,28 +257,33 @@
 } from 'sequelize-typescript';
 import { Optional } from 'sequelize';
 &nbsp;
+// Interface representing the Movie entity attributes
 interface MovieAttributes {
   movieId: string;
-  name: string;
+  title: string;
   description: string;
-  age: string;
+  ageRating: string;
   genre: string;
-  date: Date;
+  releaseDate: Date;
+  director: string;
+  durationMinutes: number;
+  posterUrl?: string; // Optional field for movie poster URL
 }
 &nbsp;
-// On creation, movieId is optional because it's auto-generated
+// Interface for creation attributes (movieId is optional because it's auto-generated)
 interface MovieCreationAttributes
   extends Optional&lt;MovieAttributes, 'movieId'&gt; {}
 &nbsp;
+// Sequelize model definition for the 'movies' table
 @Table({ tableName: 'movies', timestamps: true })
 export class MovieModel
   extends Model&lt;MovieAttributes, MovieCreationAttributes&gt;
   implements MovieAttributes
 {
   @PrimaryKey
-  @Default(DataType.UUIDV4) // auto-generate UUIDs
+  @Default(DataType.UUIDV4) // Automatically generate a UUID when creating a movie
   @Column({
-    type: DataType.UUID, 
+    type: DataType.UUID,
     allowNull: false,
     unique: true,
   })
@@ -242,31 +293,49 @@ export class MovieModel
     type: DataType.STRING,
     allowNull: false,
   })
-  public name!: string;
+  public title!: string; // Title of the movie (example: "Inception")
+&nbsp;
+  @Column({
+    type: DataType.TEXT,
+    allowNull: false,
+  })
+  public description!: string; // Full description or synopsis of the movie
 &nbsp;
   @Column({
     type: DataType.STRING,
     allowNull: false,
   })
-  public description!: string;
+  public ageRating!: string; // Age rating (example: "PG-13", "R", "G")
 &nbsp;
   @Column({
     type: DataType.STRING,
     allowNull: false,
   })
-  public age!: string;
-&nbsp;
-  @Column({
-    type: DataType.STRING,
-    allowNull: false,
-  })
-  public genre!: string;
+  public genre!: string; // Movie genre (example: "Action", "Comedy")
 &nbsp;
   @Column({
     type: DataType.DATE,
     allowNull: false,
   })
-  public date!: Date;
+  public releaseDate!: Date; // Release date of the movie
+&nbsp;
+  @Column({
+    type: DataType.STRING,
+    allowNull: false,
+  })
+  public director!: string; // Name of the movie director (example: "Christopher Nolan")
+&nbsp;
+  @Column({
+    type: DataType.INTEGER,
+    allowNull: false,
+  })
+  public durationMinutes!: number; // Duration of the movie in minutes (example: 120)
+&nbsp;
+  @Column({
+    type: DataType.STRING,
+    allowNull: true,
+  })
+  public posterUrl?: string; // Optional: URL to the movie's poster image
 }
 &nbsp;
 export { MovieAttributes, MovieCreationAttributes };
@@ -277,7 +346,7 @@ export { MovieAttributes, MovieCreationAttributes };
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2025-04-29T09:29:16.942Z
+                at 2025-04-29T11:36:34.096Z
             </div>
         <script src="../../prettify.js"></script>
         <script>
