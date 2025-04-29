@@ -20,3 +20,24 @@ export const validateCreateUser = [
       'Password must contain at least one uppercase letter, one lowercase letter, one number, one special character, and no spaces'
     ),
 ];
+
+export const validateLogin = [
+  body('email')
+    .notEmpty()
+    .withMessage('Email is required')
+    .bail() // stop if empty
+    .isEmail()
+    .withMessage('Email must be valid')
+    .normalizeEmail(),
+
+  body('password')
+    .notEmpty()
+    .withMessage('Password is required')
+    .bail() // stop if empty
+    .custom((value) => {
+      if (/\s/.test(value)) {
+        throw new Error('Password must not contain spaces');
+      }
+      return true;
+    }),
+];

@@ -1,4 +1,3 @@
-// src/__tests__/routes/auth.routes.spec.ts
 import request from 'supertest';
 import express from 'express';
 import * as AuthController from '../../controllers/auth.controller';
@@ -20,10 +19,8 @@ describe('Auth Router Tests', () => {
 
   describe('POST /auth/login', () => {
     it('should call handleLogin controller with request and response', async () => {
-      // Mock implementation for the controller
       (mockAuthController.handleLogin as jest.Mock).mockImplementation(
         (req, res) => {
-          // Simulate a successful response
           res.status(200).json({
             message: 'Login successful',
             token: 'test.token',
@@ -36,10 +33,7 @@ describe('Auth Router Tests', () => {
         .post('/auth/login')
         .send({ email: 'test@example.com', password: 'password123' });
 
-      // Verify the controller was called
       expect(mockAuthController.handleLogin).toHaveBeenCalled();
-
-      // Verify the response was as expected
       expect(response.status).toBe(200);
       expect(response.body).toEqual({
         message: 'Login successful',
@@ -47,14 +41,73 @@ describe('Auth Router Tests', () => {
         user: { id: '123', name: 'Test User', email: 'test@example.com' },
       });
     });
+
+    it('should return 400 if email is missing', async () => {
+      const response = await request(app)
+        .post('/auth/login')
+        .send({ password: 'password123' });
+
+      expect(response.status).toBe(400);
+      expect(response.body.errors).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ msg: 'Email is required', path: 'email' }),
+        ])
+      );
+    });
+
+    it('should return 400 if email format is invalid', async () => {
+      const response = await request(app)
+        .post('/auth/login')
+        .send({ email: 'invalid-email', password: 'password123' });
+
+      expect(response.status).toBe(400);
+      expect(response.body.errors).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            msg: 'Email must be valid',
+            path: 'email',
+          }),
+        ])
+      );
+    });
+
+    it('should return 400 if password is missing', async () => {
+      const response = await request(app)
+        .post('/auth/login')
+        .send({ email: 'test@example.com' });
+
+      expect(response.status).toBe(400);
+      expect(response.body.errors).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            msg: 'Password is required',
+            path: 'password',
+          }),
+        ])
+      );
+    });
+
+    it('should return 400 if password contains spaces', async () => {
+      const response = await request(app)
+        .post('/auth/login')
+        .send({ email: 'test@example.com', password: 'invalid password' });
+
+      expect(response.status).toBe(400);
+      expect(response.body.errors).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            msg: 'Password must not contain spaces',
+            path: 'password',
+          }),
+        ])
+      );
+    });
   });
 
   describe('POST /auth/verify', () => {
     it('should call handleVerifyToken controller with request and response', async () => {
-      // Mock implementation for the controller
       (mockAuthController.handleVerifyToken as jest.Mock).mockImplementation(
         (req, res) => {
-          // Simulate a successful response
           res.status(200).json({
             message: 'Token is valid',
             user: { id: '123', name: 'Test User', email: 'test@example.com' },
@@ -66,10 +119,7 @@ describe('Auth Router Tests', () => {
         .post('/auth/verify')
         .send({ token: 'valid.token' });
 
-      // Verify the controller was called
       expect(mockAuthController.handleVerifyToken).toHaveBeenCalled();
-
-      // Verify the response was as expected
       expect(response.status).toBe(200);
       expect(response.body).toEqual({
         message: 'Token is valid',
@@ -80,10 +130,8 @@ describe('Auth Router Tests', () => {
 
   describe('POST /auth/refresh', () => {
     it('should call handleRefreshToken controller with request and response', async () => {
-      // Mock implementation for the controller
       (mockAuthController.handleRefreshToken as jest.Mock).mockImplementation(
         (req, res) => {
-          // Simulate a successful response
           res.status(200).json({
             message: 'Token refreshed',
             token: 'new.token',
@@ -96,10 +144,7 @@ describe('Auth Router Tests', () => {
         .post('/auth/refresh')
         .send({ userId: '123' });
 
-      // Verify the controller was called
       expect(mockAuthController.handleRefreshToken).toHaveBeenCalled();
-
-      // Verify the response was as expected
       expect(response.status).toBe(200);
       expect(response.body).toEqual({
         message: 'Token refreshed',
@@ -109,10 +154,8 @@ describe('Auth Router Tests', () => {
     });
   });
 
-  // Additional tests for error scenarios
   describe('Error handling', () => {
     it('should handle authentication failure', async () => {
-      // Mock implementation for failed authentication
       (mockAuthController.handleLogin as jest.Mock).mockImplementation(
         (req, res) => {
           res.status(401).json({ message: 'Invalid email or password' });
@@ -128,7 +171,6 @@ describe('Auth Router Tests', () => {
     });
 
     it('should handle invalid token', async () => {
-      // Mock implementation for invalid token
       (mockAuthController.handleVerifyToken as jest.Mock).mockImplementation(
         (req, res) => {
           res.status(401).json({ message: 'Invalid token' });
@@ -141,22 +183,6 @@ describe('Auth Router Tests', () => {
 
       expect(response.status).toBe(401);
       expect(response.body.message).toBe('Invalid token');
-    });
-
-    it('should handle missing required fields', async () => {
-      // Mock implementation for missing fields
-      (mockAuthController.handleLogin as jest.Mock).mockImplementation(
-        (req, res) => {
-          res.status(400).json({ message: 'Email and password are required' });
-        }
-      );
-
-      const response = await request(app).post('/auth/login').send({
-        /* empty request body */
-      });
-
-      expect(response.status).toBe(400);
-      expect(response.body.message).toBe('Email and password are required');
     });
   });
 });

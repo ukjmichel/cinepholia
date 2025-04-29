@@ -13,11 +13,6 @@ export const authService = new AuthService();
 export async function handleLogin(req: Request, res: Response): Promise<any> {
   const { email, password } = req.body;
 
-  // Validate input
-  if (!email || !password) {
-    return res.status(400).json({ message: 'Email and password are required' });
-  }
-
   try {
     // Attempt to authenticate user
     const result = await authService.login(email, password);

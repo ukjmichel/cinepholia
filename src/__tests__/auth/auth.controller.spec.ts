@@ -37,25 +37,6 @@ describe('Auth Controller', () => {
   });
 
   describe('handleLogin', () => {
-    it('should return 400 if email or password is missing', async () => {
-      // Setup mock request with missing credentials
-      mockRequest = {
-        body: {
-          // email is missing
-          password: 'password123',
-        },
-      };
-
-      await AuthController.handleLogin(
-        mockRequest as Request,
-        mockResponse as Response
-      );
-
-      expect(mockResponse.status).toHaveBeenCalledWith(400);
-      expect(mockResponse.json).toHaveBeenCalledWith({
-        message: 'Email and password are required',
-      });
-    });
 
     it('should return 401 if login fails (invalid credentials)', async () => {
       // Setup mock request

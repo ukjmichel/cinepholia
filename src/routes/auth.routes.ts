@@ -4,6 +4,8 @@ import {
   handleVerifyToken,
   handleRefreshToken,
 } from '../controllers/auth.controller';
+import { validateLogin } from '../validators/user.validator';
+import handleValidationErrors from '../middlewares/handleValidationErrors.middleware';
 
 const authRouter = express.Router();
 
@@ -12,7 +14,7 @@ const authRouter = express.Router();
  * /auth/login:
  *   post:
  *     summary: Authenticate a user
- *     description: Authenticates a user with email and password and generates a JWT token
+ *     description: Authenticates a user with email and password (no spaces allowed) and generates a JWT token
  *     tags: [Authentication]
  *     requestBody:
  *       required: true
@@ -27,11 +29,11 @@ const authRouter = express.Router();
  *               email:
  *                 type: string
  *                 format: email
- *                 description: User's email
+ *                 description: User's email address (must be a valid email)
  *               password:
  *                 type: string
  *                 format: password
- *                 description: User's password
+ *                 description: User's password (no spaces allowed)
  *     responses:
  *       200:
  *         description: Login successful
@@ -50,13 +52,13 @@ const authRouter = express.Router();
  *                   type: object
  *                   description: User information
  *       400:
- *         description: Missing data
+ *         description: Missing or invalid data
  *       401:
  *         description: Invalid credentials
  *       500:
  *         description: Server error
  */
-authRouter.post('/login', handleLogin);
+authRouter.post('/login', validateLogin, handleValidationErrors, handleLogin);
 
 /**
  * @swagger
