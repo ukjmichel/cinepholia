@@ -1,13 +1,16 @@
 import { Router } from 'express';
 import {
-  createMovie,
-  getMovieById,
-  getAllMovies,
-  updateMovie,
-  deleteMovie,
+  handleCreateMovie,
+  handleGetMovieById,
+  handleGetAllMovies,
+  handleUpdateMovie,
+  handleDeleteMovie,
+  handleSearchMovies,
 } from '../controllers/movie.controller';
 import { authenticateJwt } from '../middlewares/auth.middleware';
 import { Permission } from '../middlewares/authorization.middleware';
+import validateCreateMovie from '../validators/movie.validator';
+import handleValidationErrors from '../middlewares/handleValidationErrors.middleware';
 
 const router = Router();
 
@@ -28,24 +31,74 @@ const router = Router();
  *           schema:
  *             type: object
  *             properties:
- *               name:
+ *               title:
  *                 type: string
  *               description:
  *                 type: string
- *               age:
+ *               ageRating:
  *                 type: string
  *               genre:
  *                 type: string
- *               date:
+ *               releaseDate:
  *                 type: string
  *                 format: date
+ *               director:
+ *                 type: string
+ *               durationMinutes:
+ *                 type: number
  *     responses:
  *       201:
  *         description: Movie successfully created
  *       500:
  *         description: Failed to create movie
  */
-router.post('/', authenticateJwt, Permission.authorize('employé'), createMovie);
+router.post(
+  '/',
+  validateCreateMovie,
+  handleValidationErrors,
+  authenticateJwt,
+  Permission.authorize('employé'),
+  handleCreateMovie
+);
+router.post(
+  '/',
+  validateCreateMovie,
+  handleValidationErrors,
+  authenticateJwt,
+  Permission.authorize('employé'),
+  handleCreateMovie
+);
+
+/**
+ * @swagger
+ * /movies/search:
+ *   get:
+ *     summary: Search for movies
+ *     tags:
+ *       - Movies
+ *     parameters:
+ *       - in: query
+ *         name: title
+ *         schema:
+ *           type: string
+ *         description: Title to search for
+ *       - in: query
+ *         name: genre
+ *         schema:
+ *           type: string
+ *         description: Genre to search for
+ *       - in: query
+ *         name: ageRating
+ *         schema:
+ *           type: string
+ *         description: Age rating to filter
+ *     responses:
+ *       200:
+ *         description: Movies matching search criteria
+ *       500:
+ *         description: Failed to search movies
+ */
+router.get('/search', handleSearchMovies); // <-- moved UP!
 
 /**
  * @swagger
@@ -69,7 +122,7 @@ router.post('/', authenticateJwt, Permission.authorize('employé'), createMovie)
  *       500:
  *         description: Failed to get movie
  */
-router.get('/:movieId', getMovieById);
+router.get('/:movieId', handleGetMovieById);
 
 /**
  * @swagger
@@ -84,7 +137,7 @@ router.get('/:movieId', getMovieById);
  *       500:
  *         description: Failed to get movies
  */
-router.get('/', getAllMovies);
+router.get('/', handleGetAllMovies);
 
 /**
  * @swagger
@@ -110,17 +163,21 @@ router.get('/', getAllMovies);
  *           schema:
  *             type: object
  *             properties:
- *               name:
+ *               title:
  *                 type: string
  *               description:
  *                 type: string
- *               age:
+ *               ageRating:
  *                 type: string
  *               genre:
  *                 type: string
- *               date:
+ *               releaseDate:
  *                 type: string
  *                 format: date
+ *               director:
+ *                 type: string
+ *               durationMinutes:
+ *                 type: number
  *     responses:
  *       200:
  *         description: Movie successfully updated
@@ -133,7 +190,7 @@ router.put(
   '/:movieId',
   authenticateJwt,
   Permission.authorize('employé'),
-  updateMovie
+  handleUpdateMovie
 );
 
 /**
@@ -164,7 +221,7 @@ router.delete(
   '/:movieId',
   authenticateJwt,
   Permission.authorize('employé'),
-  deleteMovie
+  handleDeleteMovie
 );
 
 export default router;

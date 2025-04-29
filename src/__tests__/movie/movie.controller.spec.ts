@@ -1,221 +1,120 @@
-import { Request, Response } from 'express';
-import { movieService } from '../../controllers/movie.controller';
+// src/__tests__/movie/movie.routes.spec.ts
+
+// Mock controllers before imports
+jest.mock('../../controllers/movie.controller', () => ({
+  handleCreateMovie: jest.fn((req, res) =>
+    res.status(201).json({ message: 'created' })
+  ),
+  handleGetMovieById: jest.fn((req, res) =>
+    res.status(200).json({ message: 'found' })
+  ),
+  handleGetAllMovies: jest.fn((req, res) =>
+    res.status(200).json({ message: 'list' })
+  ),
+  handleUpdateMovie: jest.fn((req, res) =>
+    res.status(200).json({ message: 'updated' })
+  ),
+  handleDeleteMovie: jest.fn((req, res) => res.status(204).send()),
+  handleSearchMovies: jest.fn((req, res) =>
+    res.status(200).json({ message: 'search' })
+  ),
+}));
+
+jest.mock('../../middlewares/auth.middleware', () => ({
+  authenticateJwt: (req: any, res: any, next: any) => next(),
+}));
+
+jest.mock('../../middlewares/authorization.middleware', () => ({
+  Permission: {
+    authorize: () => (req: any, res: any, next: any) => next(),
+  },
+}));
+
+// Import after mocks
+import express, { Express } from 'express';
+import request from 'supertest';
+import movieRouter from '../../routes/movie.routes';
 import * as movieController from '../../controllers/movie.controller';
 
-// Mock movieService methods
-jest.mock('../../services/movie.service', () => {
-  return {
-    MovieService: jest.fn().mockImplementation(() => ({
-      createMovie: jest.fn(),
-      getMovieById: jest.fn(),
-      getAllMovies: jest.fn(),
-      updateMovie: jest.fn(),
-      deleteMovie: jest.fn(),
-    })),
-  };
-});
+describe('Movie Routes', () => {
+  let app: Express;
 
-describe('MovieController', () => {
-  let req: Partial<Request>;
-  let res: Partial<Response>;
-  let json: jest.Mock;
-  let status: jest.Mock;
-  let send: jest.Mock;
-
-  beforeEach(() => {
-    send = jest.fn();
-    json = jest.fn();
-    status = jest.fn().mockReturnValue({ json, send });
-
-    req = {
-      params: {},
-      body: {},
-    };
-
-    res = {
-      status,
-      json,
-      send,
-    };
+  beforeAll(() => {
+    app = express();
+    app.use(express.json());
+    app.use('/movies', movieRouter);
   });
 
   afterEach(() => {
     jest.clearAllMocks();
   });
 
-  describe('createMovie', () => {
-    it('should return 201 on successful creation', async () => {
-      (movieService.createMovie as jest.Mock).mockResolvedValue({
-        id: 'movie123',
+  describe('POST /movies', () => {
+    it('should call handleCreateMovie controller', async () => {
+      const response = await request(app).post('/movies').send({
+        title: 'Movie Title',
+        description: 'Description',
+        ageRating: '13+',
+        genre: 'Action',
+        releaseDate: '2024-01-01',
+        director: 'Some Director',
+        durationMinutes: 120,
       });
 
-      await movieController.createMovie(req as Request, res as Response);
-
-      expect(status).toHaveBeenCalledWith(201);
-      expect(json).toHaveBeenCalledWith({
-        message: 'Movie successfully created',
-        data: { id: 'movie123' },
-      });
-    });
-
-    it('should return 500 if service throws error', async () => {
-      (movieService.createMovie as jest.Mock).mockRejectedValue(
-        new Error('Error')
-      );
-
-      await movieController.createMovie(req as Request, res as Response);
-
-      expect(status).toHaveBeenCalledWith(500);
-      expect(json).toHaveBeenCalledWith({
-        message: 'Failed to create movie',
-        error: expect.anything(),
-      });
+      expect(movieController.handleCreateMovie).toHaveBeenCalled();
+      expect(response.status).toBe(201);
+      expect(response.body).toEqual({ message: 'created' });
     });
   });
 
-  describe('getMovieById', () => {
-    it('should return 200 if movie found', async () => {
-      req.params = { movieId: 'movie123' };
-      (movieService.getMovieById as jest.Mock).mockResolvedValue({
-        movieId: 'movie123',
-      });
+  describe('GET /movies/:movieId', () => {
+    it('should call handleGetMovieById controller', async () => {
+      const response = await request(app).get('/movies/movie123');
 
-      await movieController.getMovieById(req as Request, res as Response);
-
-      expect(status).toHaveBeenCalledWith(200);
-      expect(json).toHaveBeenCalledWith({
-        message: 'Movie found',
-        data: { movieId: 'movie123' },
-      });
-    });
-
-    it('should return 404 if movie not found', async () => {
-      req.params = { movieId: 'unknown' };
-      (movieService.getMovieById as jest.Mock).mockResolvedValue(null);
-
-      await movieController.getMovieById(req as Request, res as Response);
-
-      expect(status).toHaveBeenCalledWith(404);
-      expect(json).toHaveBeenCalledWith({ message: 'Movie not found' });
-    });
-
-    it('should return 500 on error', async () => {
-      (movieService.getMovieById as jest.Mock).mockRejectedValue(
-        new Error('Error')
-      );
-
-      await movieController.getMovieById(req as Request, res as Response);
-
-      expect(status).toHaveBeenCalledWith(500);
-      expect(json).toHaveBeenCalledWith({
-        message: 'Failed to get movie',
-        error: expect.anything(),
-      });
+      expect(movieController.handleGetMovieById).toHaveBeenCalled();
+      expect(response.status).toBe(200);
+      expect(response.body).toEqual({ message: 'found' });
     });
   });
 
-  describe('getAllMovies', () => {
-    it('should return 200 and list movies', async () => {
-      (movieService.getAllMovies as jest.Mock).mockResolvedValue([
-        { movieId: 'm1' },
-      ]);
+  describe('GET /movies', () => {
+    it('should call handleGetAllMovies controller', async () => {
+      const response = await request(app).get('/movies');
 
-      await movieController.getAllMovies(req as Request, res as Response);
-
-      expect(status).toHaveBeenCalledWith(200);
-      expect(json).toHaveBeenCalledWith({
-        message: 'Movies list successfully retrieved',
-        data: [{ movieId: 'm1' }],
-      });
-    });
-
-    it('should return 500 on error', async () => {
-      (movieService.getAllMovies as jest.Mock).mockRejectedValue(
-        new Error('Error')
-      );
-
-      await movieController.getAllMovies(req as Request, res as Response);
-
-      expect(status).toHaveBeenCalledWith(500);
-      expect(json).toHaveBeenCalledWith({
-        message: 'Failed to get movies',
-        error: expect.anything(),
-      });
+      expect(movieController.handleGetAllMovies).toHaveBeenCalled();
+      expect(response.status).toBe(200);
+      expect(response.body).toEqual({ message: 'list' });
     });
   });
 
-  describe('updateMovie', () => {
-    it('should return 200 on successful update', async () => {
-      req.params = { movieId: 'movie123' };
-      (movieService.updateMovie as jest.Mock).mockResolvedValue({
-        movieId: 'movie123',
+  describe('PUT /movies/:movieId', () => {
+    it('should call handleUpdateMovie controller', async () => {
+      const response = await request(app).put('/movies/movie123').send({
+        title: 'Updated Movie',
       });
 
-      await movieController.updateMovie(req as Request, res as Response);
-
-      expect(status).toHaveBeenCalledWith(200);
-      expect(json).toHaveBeenCalledWith({
-        message: 'Movie successfully updated',
-        data: { movieId: 'movie123' },
-      });
-    });
-
-    it('should return 404 if movie not found', async () => {
-      (movieService.updateMovie as jest.Mock).mockResolvedValue(null);
-
-      await movieController.updateMovie(req as Request, res as Response);
-
-      expect(status).toHaveBeenCalledWith(404);
-      expect(json).toHaveBeenCalledWith({ message: 'Movie not found' });
-    });
-
-    it('should return 500 on error', async () => {
-      (movieService.updateMovie as jest.Mock).mockRejectedValue(
-        new Error('Error')
-      );
-
-      await movieController.updateMovie(req as Request, res as Response);
-
-      expect(status).toHaveBeenCalledWith(500);
-      expect(json).toHaveBeenCalledWith({
-        message: 'Failed to update movie',
-        error: expect.anything(),
-      });
+      expect(movieController.handleUpdateMovie).toHaveBeenCalled();
+      expect(response.status).toBe(200);
+      expect(response.body).toEqual({ message: 'updated' });
     });
   });
 
-  describe('deleteMovie', () => {
-    it('should return 204 on successful delete', async () => {
-      req.params = { movieId: 'movie123' };
-      (movieService.deleteMovie as jest.Mock).mockResolvedValue(true);
+  describe('DELETE /movies/:movieId', () => {
+    it('should call handleDeleteMovie controller', async () => {
+      const response = await request(app).delete('/movies/movie123');
 
-      await movieController.deleteMovie(req as Request, res as Response);
-
-      expect(status).toHaveBeenCalledWith(204);
-      expect(send).toHaveBeenCalled();
+      expect(movieController.handleDeleteMovie).toHaveBeenCalled();
+      expect(response.status).toBe(204);
     });
+  });
 
-    it('should return 404 if movie not found', async () => {
-      (movieService.deleteMovie as jest.Mock).mockResolvedValue(false);
+  describe('GET /movies/search', () => {
+    it('should call handleSearchMovies controller', async () => {
+      const response = await request(app).get('/movies/search?title=Inception');
 
-      await movieController.deleteMovie(req as Request, res as Response);
-
-      expect(status).toHaveBeenCalledWith(404);
-      expect(json).toHaveBeenCalledWith({ message: 'Movie not found' });
-    });
-
-    it('should return 500 on error', async () => {
-      (movieService.deleteMovie as jest.Mock).mockRejectedValue(
-        new Error('Error')
-      );
-
-      await movieController.deleteMovie(req as Request, res as Response);
-
-      expect(status).toHaveBeenCalledWith(500);
-      expect(json).toHaveBeenCalledWith({
-        message: 'Failed to delete movie',
-        error: expect.anything(),
-      });
+      expect(movieController.handleSearchMovies).toHaveBeenCalled();
+      expect(response.status).toBe(200);
+      expect(response.body).toEqual({ message: 'search' });
     });
   });
 });

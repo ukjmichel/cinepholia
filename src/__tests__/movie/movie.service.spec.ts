@@ -150,4 +150,62 @@ describe('MovieService', () => {
     const deleted = await movieService.deleteMovie('nonexistent-id');
     expect(deleted).toBe(false);
   });
+  it('should search movies by title, genre, and director', async () => {
+    await MovieModel.bulkCreate([
+      {
+        movieId: 'movie1',
+        title: 'The Great Adventure',
+        description: 'Epic story',
+        ageRating: 'PG',
+        genre: 'Adventure',
+        releaseDate: new Date('2020-01-01'),
+        director: 'John Doe',
+        durationMinutes: 120,
+      },
+      {
+        movieId: 'movie2',
+        title: 'Space Journey',
+        description: 'Into the stars',
+        ageRating: 'PG-13',
+        genre: 'Sci-Fi',
+        releaseDate: new Date('2021-01-01'),
+        director: 'Jane Smith',
+        durationMinutes: 130,
+      },
+      {
+        movieId: 'movie3',
+        title: 'Romantic Escape',
+        description: 'Love story',
+        ageRating: 'R',
+        genre: 'Romance',
+        releaseDate: new Date('2022-01-01'),
+        director: 'John Doe',
+        durationMinutes: 110,
+      },
+    ]);
+
+    // Search by partial title
+    const searchByTitle = await movieService.searchMovies({ title: 'Space' });
+    expect(searchByTitle.length).toBe(1);
+    expect(searchByTitle[0].title).toBe('Space Journey');
+
+    // Search by genre
+    const searchByGenre = await movieService.searchMovies({
+      genre: 'Adventure',
+    });
+    expect(searchByGenre.length).toBe(1);
+    expect(searchByGenre[0].genre).toBe('Adventure');
+
+    // Search by director
+    const searchByDirector = await movieService.searchMovies({
+      director: 'John Doe',
+    });
+    expect(searchByDirector.length).toBe(2); // Two movies directed by John Doe
+
+    // Search by non-existing field
+    const noResult = await movieService.searchMovies({
+      title: 'Nonexistent Movie',
+    });
+    expect(noResult.length).toBe(0);
+  });
 });

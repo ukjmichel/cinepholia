@@ -1,3 +1,4 @@
+import { Op } from 'sequelize';
 import { MovieModel, MovieAttributes } from '../models/movie.model';
 
 export class MovieService {
@@ -56,5 +57,38 @@ export class MovieService {
   async deleteMovie(movieId: string): Promise<boolean> {
     const deletedCount = await MovieModel.destroy({ where: { movieId } });
     return deletedCount > 0;
+  }
+
+  /**
+   * Search for movies by filters.
+   * @param filters - The filters (title, genre, director, ageRating)
+   * @returns Promise<MovieModel[]> - The matching movies
+   */
+  async searchMovies(filters: {
+    title?: string;
+    genre?: string;
+    director?: string;
+    ageRating?: string;
+  }): Promise<MovieModel[]> {
+    const whereClause: any = {};
+
+    if (filters.title) {
+      whereClause.title = { [Op.like]: `%${filters.title}%` }; // LIKE for MySQL
+    }
+
+    if (filters.genre) {
+      whereClause.genre = { [Op.like]: `%${filters.genre}%` };
+    }
+
+    if (filters.director) {
+      whereClause.director = { [Op.like]: `%${filters.director}%` };
+    }
+
+    if (filters.ageRating) {
+      whereClause.ageRating = filters.ageRating; // Exact match (no LIKE needed)
+    }
+
+    const movies = await MovieModel.findAll({ where: whereClause });
+    return movies;
   }
 }

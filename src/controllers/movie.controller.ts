@@ -8,10 +8,7 @@ export const movieService = new MovieService();
  * @param req Express request
  * @param res Express response
  */
-export const createMovie = async (
-  req: Request,
-  res: Response
-): Promise<void> => {
+export const handleCreateMovie = async (req: Request, res: Response): Promise<void> => {
   try {
     const movie = await movieService.createMovie(req.body);
     res.status(201).json({
@@ -28,7 +25,7 @@ export const createMovie = async (
  * @param req Express request
  * @param res Express response
  */
-export const getMovieById = async (
+export const handleGetMovieById = async (
   req: Request,
   res: Response
 ): Promise<void> => {
@@ -55,7 +52,7 @@ export const getMovieById = async (
  * @param req Express request
  * @param res Express response
  */
-export const getAllMovies = async (
+export const handleGetAllMovies = async (
   _req: Request,
   res: Response
 ): Promise<void> => {
@@ -75,10 +72,7 @@ export const getAllMovies = async (
  * @param req Express request
  * @param res Express response
  */
-export const updateMovie = async (
-  req: Request,
-  res: Response
-): Promise<void> => {
+export const handleUpdateMovie = async (req: Request, res: Response): Promise<void> => {
   try {
     const { movieId } = req.params;
     const updatedMovie = await movieService.updateMovie(movieId, req.body);
@@ -102,10 +96,7 @@ export const updateMovie = async (
  * @param req Express request
  * @param res Express response
  */
-export const deleteMovie = async (
-  req: Request,
-  res: Response
-): Promise<void> => {
+export const handleDeleteMovie = async (req: Request, res: Response): Promise<void> => {
   try {
     const { movieId } = req.params;
     const deleted = await movieService.deleteMovie(movieId);
@@ -118,5 +109,33 @@ export const deleteMovie = async (
     res.status(204).send(); // No content
   } catch (error) {
     res.status(500).json({ message: 'Failed to delete movie', error });
+  }
+};
+
+/**
+ * Search movies by title, genre, or director.
+ * @param req Express request
+ * @param res Express response
+ */
+export const handleSearchMovies = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  try {
+    const { title, genre, director } = req.query;
+    const searchCriteria: any = {};
+
+    if (title) searchCriteria.title = title;
+    if (genre) searchCriteria.genre = genre;
+    if (director) searchCriteria.director = director;
+
+    const movies = await movieService.searchMovies(searchCriteria);
+
+    res.status(200).json({
+      message: 'Search results successfully retrieved',
+      data: movies,
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to search movies', error });
   }
 };
