@@ -21,7 +21,7 @@ export const validateScreeningSearchQuery = [
     .trim()
     .notEmpty()
     .withMessage('theaterId is required')
-    .isUUID()
+    .isString()
     .withMessage('theaterId must be a valid UUID'),
   query('movieId')
     .trim()
