@@ -7,6 +7,8 @@ import { SeatBookingAttributes } from '../models/seatBooking.model';
 // Singleton instance of SeatBookingService
 const seatBookingService = new SeatBookingService();
 
+
+
 /**
  * Create a new seat booking.
  *
@@ -59,11 +61,9 @@ export const handleGetSeatBookingByScreeningAndSeat = async (
       );
 
     if (!seatBooking) {
-      res
-        .status(404)
-        .json({
-          message: `Seat booking not found for seat ${seatId} in screening ${screeningId}`,
-        });
+      res.status(404).json({
+        message: `Seat booking not found for seat ${seatId} in screening ${screeningId}`,
+      });
       return;
     }
 
@@ -159,11 +159,9 @@ export const handleDeleteSeatBooking = async (
     );
 
     if (!deleted) {
-      res
-        .status(404)
-        .json({
-          message: `Seat booking not found for seat ${seatId} in screening ${screeningId}`,
-        });
+      res.status(404).json({
+        message: `Seat booking not found for seat ${seatId} in screening ${screeningId}`,
+      });
       return;
     }
 

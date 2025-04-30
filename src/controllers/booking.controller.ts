@@ -1,9 +1,17 @@
 import { Request, Response, NextFunction } from 'express';
 import { BookingService } from '../services/booking.service';
 import { BookingAttributes } from '../models/booking.model';
+import { ScreeningService } from '../services/screening.service';
+import { SeatBookingService } from '../services/seatBooking.service';
+import { MovieHallService } from '../services/movieHall.service';
+
+export const screeningService = new ScreeningService();
+export const seatBookingService = new SeatBookingService();
+export const movieHallService = new MovieHallService();
 
 // Create a singleton instance of the service
 const bookingService = new BookingService();
+
 
 /**
  * Create a new booking
@@ -12,14 +20,27 @@ const bookingService = new BookingService();
  * @param next - Express next function
  */
 
+interface ExtendedRequest extends Request {
+  user?: any;
+  screening?: any;
+  validatedSeats?: string[];
+}
+
+/**
+ * Create a new booking with seat reservations
+ * Expects:
+ * - req.user to be set by authentication middleware
+ * - req.validatedSeats to be set by seat validation middleware
+ * - req.body to contain screeningId, bookingDate, seatsNumber
+ */
 export const handleCreateBooking = async (
-  req: Request,
+  req: ExtendedRequest,
   res: Response,
   next: NextFunction
 ): Promise<void> => {
   try {
     // Extract booking data, but ignore userId coming from body
-    const bookingData: Omit<BookingAttributes, 'userId'> = req.body;
+    const { screeningId, bookingDate, seatsNumber } = req.body;
 
     // Force the userId from the authenticated user
     const userId = req.user?.id;
@@ -31,17 +52,82 @@ export const handleCreateBooking = async (
       return;
     }
 
+    // Get validated seat IDs from previous middleware or from request body
+    const seatIds = req.validatedSeats || req.body.seatId;
+
+    if (!seatIds || seatIds.length === 0) {
+      res.status(400).json({ message: 'No valid seats provided for booking' });
+      return;
+    }
+
+    // Ensure seatsNumber matches the actual number of seats
+    const actualSeatsNumber = seatIds.length;
+    if (seatsNumber !== actualSeatsNumber) {
+      res.status(400).json({
+        message: 'Seats number mismatch',
+        expected: seatsNumber,
+        actual: actualSeatsNumber,
+      });
+      return;
+    }
+
+    // Generate a unique booking ID
+    const bookingId = crypto.randomUUID();
+
+    // Create the booking
     const booking = await bookingService.createBooking({
-      ...bookingData,
-      userId, // 🛡️ Force userId from token
+      bookingId,
+      userId,
+      screeningId,
+      bookingDate: new Date(bookingDate),
+      seatsNumber: actualSeatsNumber,
+      status: 'pending',
     });
 
-    res.status(201).json(booking);
+    // Book each seat
+    const seatBookings = [];
+    for (const seatId of seatIds) {
+      const seatBooking = await seatBookingService.createSeatBooking({
+        screeningId,
+        seatId,
+        bookingId: booking.bookingId,
+      });
+      seatBookings.push(seatBooking);
+    }
+
+    // Return comprehensive booking information
+    res.status(201).json({
+      message: 'Booking created successfully',
+      booking,
+      seats: seatBookings,
+      totalSeats: seatBookings.length,
+    });
   } catch (error) {
     console.error('Error creating booking:', error);
+
+    // Provide more specific error messages based on error type
+    if (error instanceof Error) {
+      if (error.message.includes('foreign key constraint')) {
+        res.status(400).json({
+          message: 'Invalid reference: The screeningId may not exist',
+          error: error.message,
+        });
+        return;
+      }
+
+      if (error.message.includes('unique constraint')) {
+        res.status(409).json({
+          message: 'Conflict: A booking with this ID already exists',
+          error: error.message,
+        });
+        return;
+      }
+    }
+
+    // Generic error fallback
     res.status(500).json({
       message: 'Failed to create booking',
-      error: (error as Error).message,
+      error: error instanceof Error ? error.message : 'Unknown error',
     });
   }
 };

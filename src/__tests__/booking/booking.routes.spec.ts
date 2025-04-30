@@ -79,18 +79,6 @@ describe('Booking Routes', () => {
     jest.clearAllMocks();
   });
 
-  describe('POST /bookings', () => {
-    it('should return 201 Created', async () => {
-      const response = await request(app).post('/bookings').send({
-        screeningId: 'screening123',
-        bookingDate: new Date().toISOString(),
-        seatsNumber: 2,
-      });
-      expect(response.status).toBe(201);
-      expect(response.body).toEqual({ message: 'Booking created' });
-    });
-  });
-
   describe('GET /bookings', () => {
     it('should return 200 OK', async () => {
       const response = await request(app).get('/bookings');

@@ -9,6 +9,7 @@ import movieHallRouter from "./movieHall.routes"
 import movieRouter from "./movie.routes"
 import screeningRouter from "./screening.routes"
 import bookingRouter from "./booking.routes"
+import seatBookingRouter from './seatBooking.routes';
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -48,6 +49,7 @@ app.use('/api/movie', movieRouter);
 
 app.use('/api/screening', screeningRouter);
 app.use('/api/bookings', bookingRouter);
+app.use("/api/seat-bookings",seatBookingRouter)
 
 app.listen(port, () => {
   console.log(`Server is running on port ${port}`);

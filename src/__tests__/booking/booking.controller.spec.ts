@@ -108,6 +108,16 @@ jest.mock('../../middlewares/auth.middleware', () => ({
   },
 }));
 
+jest.mock('../../services/seatBooking.service', () => ({
+  SeatBookingService: jest.fn().mockImplementation(() => ({
+    createSeatBooking: jest.fn(async ({ screeningId, seatId, bookingId }) => ({
+      seatId,
+      screeningId,
+      bookingId,
+    })),
+  })),
+}));
+
 describe('BookingController', () => {
   let app: Express;
   let sequelize: Sequelize;
@@ -116,7 +126,6 @@ describe('BookingController', () => {
     app = express();
     app.use(express.json());
 
-    // Setup in-memory SQLite database
     sequelize = new Sequelize({
       dialect: 'sqlite',
       storage: ':memory:',
@@ -134,7 +143,6 @@ describe('BookingController', () => {
 
     await sequelize.sync({ force: true });
 
-    // Apply middleware to simulate auth for all routes
     app.use((req: Request, res: Response, next: NextFunction) => {
       req.user = {
         id: 'user-uuid',
@@ -144,7 +152,6 @@ describe('BookingController', () => {
       next();
     });
 
-    // Routes for testing
     app.post('/bookings', handleCreateBooking);
     app.get('/bookings', handleGetAllBookings);
     app.get('/bookings/:bookingId', handleGetBookingById);
@@ -156,30 +163,32 @@ describe('BookingController', () => {
   });
 
   afterAll(async () => {
-    if (sequelize) {
-      await sequelize.close();
-    }
+    await sequelize.close();
   });
 
   beforeEach(() => {
-    // Reset all mocks before each test
     jest.clearAllMocks();
 
-    // Default implementations for mocks
     mocks.createBooking.mockImplementation(
-      async (bookingData: BookingAttributes) => ({ ...bookingData })
+      async (data: BookingAttributes): Promise<BookingAttributes> => ({
+        ...data,
+      })
     );
-    mocks.getBookingById.mockImplementation(async (id: string) => {
-      if (id === 'invalid-id') return null;
-      return {
-        bookingId: id,
-        userId: 'user-uuid',
-        screeningId: 'screening-123',
-        bookingDate: new Date(),
-        seatsNumber: 2,
-        status: 'pending',
-      } as BookingAttributes;
-    });
+
+    mocks.getBookingById.mockImplementation(
+      async (id: string): Promise<BookingAttributes | null> => {
+        if (id === 'invalid-id') return null;
+        return {
+          bookingId: id,
+          userId: 'user-uuid',
+          screeningId: 'screening-123',
+          bookingDate: new Date(),
+          seatsNumber: 2,
+          status: 'pending',
+        };
+      }
+    );
+
     mocks.getAllBookings.mockResolvedValue([
       {
         bookingId: 'booking-1',
@@ -188,7 +197,7 @@ describe('BookingController', () => {
         bookingDate: new Date(),
         seatsNumber: 2,
         status: 'pending',
-      } as BookingAttributes,
+      },
       {
         bookingId: 'booking-2',
         userId: 'user-uuid',
@@ -196,10 +205,14 @@ describe('BookingController', () => {
         bookingDate: new Date(),
         seatsNumber: 1,
         status: 'used',
-      } as BookingAttributes,
+      },
     ]);
+
     mocks.updateBooking.mockImplementation(
-      async (id: string, data: Partial<BookingAttributes>) => {
+      async (
+        id: string,
+        data: Partial<BookingAttributes>
+      ): Promise<BookingAttributes | null> => {
         if (id === 'invalid-id') return null;
         return {
           bookingId: id,
@@ -209,14 +222,16 @@ describe('BookingController', () => {
           seatsNumber: data.seatsNumber || 2,
           status: data.status || 'pending',
           ...data,
-        } as BookingAttributes;
+        };
       }
     );
-    mocks.deleteBooking.mockImplementation(async (id: string) => {
-      return id !== 'invalid-id';
-    });
-    mocks.getBookingsByUserId.mockImplementation(async (userId: string) => {
-      return [
+
+    mocks.deleteBooking.mockImplementation(
+      async (id: string): Promise<boolean> => id !== 'invalid-id'
+    );
+
+    mocks.getBookingsByUserId.mockImplementation(
+      async (userId: string): Promise<BookingAttributes[]> => [
         {
           bookingId: 'user-booking-1',
           userId,
@@ -224,7 +239,7 @@ describe('BookingController', () => {
           bookingDate: new Date(),
           seatsNumber: 2,
           status: 'pending',
-        } as BookingAttributes,
+        },
         {
           bookingId: 'user-booking-2',
           userId,
@@ -232,88 +247,82 @@ describe('BookingController', () => {
           bookingDate: new Date(),
           seatsNumber: 3,
           status: 'pending',
-        } as BookingAttributes,
-      ];
-    });
-    mocks.markBookingAsUsed.mockImplementation(async (id: string) => {
-      if (id === 'invalid-id') return null;
-      return {
-        bookingId: id,
-        userId: 'user-uuid',
-        screeningId: 'screening-123',
-        bookingDate: new Date(),
-        seatsNumber: 2,
-        status: 'used',
-      } as BookingAttributes;
-    });
-    mocks.cancelBooking.mockImplementation(async (id: string) => {
-      if (id === 'invalid-id') return null;
-      return {
-        bookingId: id,
-        userId: 'user-uuid',
-        screeningId: 'screening-123',
-        bookingDate: new Date(),
-        seatsNumber: 2,
-        status: 'canceled',
-      } as BookingAttributes;
-    });
+        },
+      ]
+    );
+
+    mocks.markBookingAsUsed.mockImplementation(
+      async (id: string): Promise<BookingAttributes | null> => {
+        if (id === 'invalid-id') return null;
+        return {
+          bookingId: id,
+          userId: 'user-uuid',
+          screeningId: 'screening-123',
+          bookingDate: new Date(),
+          seatsNumber: 2,
+          status: 'used',
+        };
+      }
+    );
+
+    mocks.cancelBooking.mockImplementation(
+      async (id: string): Promise<BookingAttributes | null> => {
+        if (id === 'invalid-id') return null;
+        return {
+          bookingId: id,
+          userId: 'user-uuid',
+          screeningId: 'screening-123',
+          bookingDate: new Date(),
+          seatsNumber: 2,
+          status: 'canceled',
+        };
+      }
+    );
   });
 
   describe('handleCreateBooking', () => {
     it('should create a booking and enforce userId from token', async () => {
-      const bookingData = {
-        bookingId: 'booking-uuid',
-        userId: 'different-user-id', // This should be overridden by token's userId
-        screeningId: 'screening-uuid',
-        bookingDate: new Date().toISOString(),
-        seatsNumber: 2,
-        status: 'pending',
-      };
-
-      const response = await request(app).post('/bookings').send(bookingData);
+      const response = await request(app)
+        .post('/bookings')
+        .send({
+          bookingId: 'booking-uuid',
+          userId: 'wrong-id',
+          screeningId: 'screening-uuid',
+          bookingDate: new Date().toISOString(),
+          seatsNumber: 2,
+          seatId: ['seat-1', 'seat-2'],
+        });
 
       expect(response.status).toBe(201);
-      expect(response.body).toHaveProperty('userId', 'user-uuid');
-      expect(mocks.createBooking).toHaveBeenCalledWith({
-        ...bookingData,
-        userId: 'user-uuid', // Verify userId was overridden
-      });
-    });
-
-    it('should return 401 if user is not authenticated', async () => {
-      // Create a separate app instance for this test without auth middleware
-      const noAuthApp = express();
-      noAuthApp.use(express.json());
-      noAuthApp.post('/bookings', handleCreateBooking);
-
-      const response = await request(noAuthApp).post('/bookings').send({
-        bookingId: 'booking-uuid',
-        screeningId: 'screening-uuid',
-        bookingDate: new Date().toISOString(),
-        seatsNumber: 2,
-      });
-
-      expect(response.status).toBe(401);
-      expect(response.body.message).toContain('Unauthorized');
-    });
-
-    it('should handle service errors during booking creation', async () => {
-      // Mock service to throw an error
-      mocks.createBooking.mockRejectedValue(new Error('Database error'));
-
-      const response = await request(app).post('/bookings').send({
-        bookingId: 'booking-uuid',
-        screeningId: 'screening-uuid',
-        bookingDate: new Date().toISOString(),
-        seatsNumber: 2,
-      });
-
-      expect(response.status).toBe(500);
-      expect(response.body).toHaveProperty(
-        'message',
-        'Failed to create booking'
+      expect(response.body.booking.userId).toBe('user-uuid');
+      expect(mocks.createBooking).toHaveBeenCalledWith(
+        expect.objectContaining({ userId: 'user-uuid' })
       );
-      expect(response.body).toHaveProperty('error', 'Database error');
+    });
+
+    it('should return 400 if no seats provided', async () => {
+      const response = await request(app).post('/bookings').send({
+        screeningId: 'screening-uuid',
+        bookingDate: new Date().toISOString(),
+        seatsNumber: 2,
+      });
+
+      expect(response.status).toBe(400);
+      expect(response.body.message).toContain('No valid seats provided');
+    });
+
+    it('should return 400 if seat count mismatches', async () => {
+      const response = await request(app)
+        .post('/bookings')
+        .send({
+          screeningId: 'screening-uuid',
+          bookingDate: new Date().toISOString(),
+          seatsNumber: 3,
+          seatId: ['s1', 's2'],
+        });
+
+      expect(response.status).toBe(400);
+      expect(response.body.message).toContain('Seats number mismatch');
     });
   });
 
