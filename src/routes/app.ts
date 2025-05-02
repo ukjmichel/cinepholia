@@ -5,11 +5,12 @@ import { setupSwagger } from '../config/swagger';
 import userRouter from './user.routes';
 import authRouter from './auth.routes';
 import movieTheatherRouter from './movieTheater.routes';
-import movieHallRouter from "./movieHall.routes"
-import movieRouter from "./movie.routes"
-import screeningRouter from "./screening.routes"
-import bookingRouter from "./booking.routes"
+import movieHallRouter from './movieHall.routes';
+import movieRouter from './movie.routes';
+import screeningRouter from './screening.routes';
+import bookingRouter from './booking.routes';
 import seatBookingRouter from './seatBooking.routes';
+import emailRouter from './email.route';
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -39,17 +40,15 @@ app.use('/api/users', userRouter);
 
 app.use('/api/auth', authRouter);
 
-app.use(
-  '/api/movie-theater',
-  movieTheatherRouter
-);
+app.use('/api/movie-theater', movieTheatherRouter);
 app.use('/api/movie-hall', movieHallRouter);
 
 app.use('/api/movie', movieRouter);
 
 app.use('/api/screening', screeningRouter);
 app.use('/api/bookings', bookingRouter);
-app.use("/api/seat-bookings",seatBookingRouter)
+app.use('/api/seat-bookings', seatBookingRouter);
+app.use('/api/email', emailRouter);
 
 app.listen(port, () => {
   console.log(`Server is running on port ${port}`);

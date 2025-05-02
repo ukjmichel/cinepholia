@@ -3,11 +3,13 @@ import { Role } from '../models/authorization.model';
 import UserService from '../services/user.service';
 import { AuthService } from '../services/auth.service';
 import { AuthorizationService } from '../services/authorization.service';
+import { EmailService } from '../services/email.service';
 
 // Service instances
 export const userService = new UserService();
 export const authService = new AuthService();
 export const authorizationService = new AuthorizationService();
+export const emailService = new EmailService();
 
 /**
  * Creates a new user with a specified role.
@@ -17,7 +19,7 @@ export const authorizationService = new AuthorizationService();
 export const handleCreateUser =
   (role: Role) =>
   async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-    const { name, email, password } = req.body;
+    const { username, email, password } = req.body;
 
     try {
       const emailIsUnique = await userService.isEmailUnique(email);
@@ -26,9 +28,10 @@ export const handleCreateUser =
         return;
       }
 
-      const user = await userService.createUser(name, email, password);
+      const user = await userService.createUser(username, email, password);
       authorizationService.setRole(user.id, role);
       const token = authService.generateToken(user);
+      emailService.sendWelcomeEmail(email, username);
 
       res.status(201).json({
         message: 'New account successfully created',
