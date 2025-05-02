@@ -31,7 +31,7 @@ export const handleCreateUser =
       const user = await userService.createUser(username, email, password);
       authorizationService.setRole(user.id, role);
       const token = authService.generateToken(user);
-      emailService.sendWelcomeEmail(email, username);
+      await emailService.sendWelcomeEmail(email, username);
 
       res.status(201).json({
         message: 'New account successfully created',

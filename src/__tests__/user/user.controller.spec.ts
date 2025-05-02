@@ -4,6 +4,7 @@ import * as UserController from '../../controllers/user.controller';
 jest.mock('../../services/user.service');
 jest.mock('../../services/auth.service');
 jest.mock('../../services/authorization.service');
+jest.mock('../../services/email.service');
 
 describe('🧪 User Controller Tests', () => {
   let mockRequest: Partial<Request>;
@@ -35,7 +36,7 @@ describe('🧪 User Controller Tests', () => {
   describe('handleCreateUser', () => {
     it('should create a user successfully', async () => {
       mockRequest.body = {
-        name: 'TestUser',
+        username: 'TestUser', // fixed "name" to "username" if needed
         email: 'test@example.com',
         password: 'Password123!',
       };
@@ -45,7 +46,7 @@ describe('🧪 User Controller Tests', () => {
       );
       (UserController.userService.createUser as jest.Mock).mockResolvedValue({
         id: '123',
-        name: 'TestUser',
+        username: 'TestUser',
         email: 'test@example.com',
       });
       (UserController.authService.generateToken as jest.Mock).mockReturnValue(
@@ -54,6 +55,9 @@ describe('🧪 User Controller Tests', () => {
       (
         UserController.authorizationService.setRole as jest.Mock
       ).mockResolvedValue(undefined);
+      (
+        UserController.emailService.sendWelcomeEmail as jest.Mock
+      ).mockResolvedValue(undefined); // <-- MOCK sendWelcomeEmail too
 
       const createUserFn = UserController.handleCreateUser('utilisateur');
       await createUserFn(
@@ -65,9 +69,28 @@ describe('🧪 User Controller Tests', () => {
       expect(mockResponse.status).toHaveBeenCalledWith(201);
       expect(mockResponse.json).toHaveBeenCalledWith({
         message: 'New account successfully created',
-        data: { id: '123', name: 'TestUser', email: 'test@example.com' },
+        data: { id: '123', username: 'TestUser', email: 'test@example.com' },
         role: 'utilisateur',
         token: 'mock-token',
+      });
+
+      expect(UserController.emailService.sendWelcomeEmail).toHaveBeenCalledWith(
+        'test@example.com',
+        'TestUser'
+      );
+      it('should throw an error if sending welcome email fails', async () => {
+        const email = 'test@example.com';
+        const username = 'TestUser';
+
+        // Mock the method to reject (simulate failure)
+        (
+          UserController.emailService.sendWelcomeEmail as jest.Mock
+        ).mockRejectedValue(new Error('Failed to send welcome email'));
+
+        // Important: assert that a promise rejects!
+        await expect(
+          UserController.emailService.sendWelcomeEmail(email, username)
+        ).rejects.toThrow('Failed to send welcome email');
       });
     });
 
