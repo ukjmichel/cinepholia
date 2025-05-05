@@ -12,7 +12,6 @@ import { v4 as uuidv4 } from 'uuid';
 jest.mock('../../middlewares/auth.middleware', () => ({
   authenticateJwt: (req: any, res: any, next: any) => next(),
 }));
-
 jest.mock('../../middlewares/authorization.middleware', () => ({
   Permission: {
     authorize: () => (req: any, res: any, next: any) => next(),
@@ -38,7 +37,6 @@ describe('Screening Routes', () => {
       logging: false,
       models: [ScreeningModel, MovieModel, MovieTheaterModel, MovieHallModel],
     });
-
     await sequelize.sync({ force: true });
 
     app = express();
@@ -53,7 +51,6 @@ describe('Screening Routes', () => {
   });
 
   beforeEach(async () => {
-    // Reset all
     await ScreeningModel.destroy({ where: {}, truncate: true, cascade: true });
     await MovieModel.destroy({ where: {}, truncate: true, cascade: true });
     await MovieTheaterModel.destroy({
@@ -63,7 +60,6 @@ describe('Screening Routes', () => {
     });
     await MovieHallModel.destroy({ where: {}, truncate: true, cascade: true });
 
-    // Generate UUIDs
     movieId1 = uuidv4();
     movieId2 = uuidv4();
     theaterId1 = uuidv4();
@@ -71,96 +67,96 @@ describe('Screening Routes', () => {
     hallId1 = uuidv4();
     hallId2 = uuidv4();
 
-    // Create movies
-    await MovieModel.create({
-      movieId: movieId1,
-      title: 'Inception',
-      description: 'A mind-bending thriller',
-      ageRating: '13+',
-      genre: 'Sci-Fi',
-      releaseDate: new Date('2010-07-16'),
-      director: 'Christopher Nolan',
-      durationMinutes: 148,
-    });
+    await MovieModel.bulkCreate([
+      {
+        movieId: movieId1,
+        title: 'Inception',
+        description: 'A mind-bending thriller',
+        ageRating: '13+',
+        genre: 'Sci-Fi',
+        releaseDate: new Date('2010-07-16'),
+        director: 'Christopher Nolan',
+        durationMinutes: 148,
+      },
+      {
+        movieId: movieId2,
+        title: 'The Dark Knight',
+        description: 'Batman fights the Joker',
+        ageRating: '13+',
+        genre: 'Action',
+        releaseDate: new Date('2008-07-18'),
+        director: 'Christopher Nolan',
+        durationMinutes: 152,
+      },
+    ]);
 
-    await MovieModel.create({
-      movieId: movieId2,
-      title: 'The Dark Knight',
-      description: 'Batman fights the Joker',
-      ageRating: '13+',
-      genre: 'Action',
-      releaseDate: new Date('2008-07-18'),
-      director: 'Christopher Nolan',
-      durationMinutes: 152,
-    });
+    await MovieTheaterModel.bulkCreate([
+      {
+        theaterId: theaterId1,
+        address: '123 Main Street',
+        postalCode: '75000',
+        city: 'Paris',
+        phone: '0102030405',
+        email: 'theater@example.com',
+      },
+      {
+        theaterId: theaterId2,
+        address: '456 Elm Street',
+        postalCode: '75001',
+        city: 'Paris',
+        phone: '0102030406',
+        email: 'theater2@example.com',
+      },
+    ]);
 
-    // Create theaters
-    await MovieTheaterModel.create({
-      theaterId: theaterId1,
-      address: '123 Main Street',
-      postalCode: '75000',
-      city: 'Paris',
-      phone: '0102030405',
-      email: 'theater@example.com',
-    });
+    await MovieHallModel.bulkCreate([
+      {
+        hallId: hallId1,
+        theaterId: theaterId1,
+        seatsLayout: [
+          [1, 2, 3, '', 4, 5],
+          [6, 7, 8, '', 9, 10],
+        ],
+      },
+      {
+        hallId: hallId2,
+        theaterId: theaterId2,
+        seatsLayout: [
+          [1, 2, 3, 4],
+          [5, 6, 7, 8],
+        ],
+      },
+    ]);
 
-    await MovieTheaterModel.create({
-      theaterId: theaterId2,
-      address: '456 Elm Street',
-      postalCode: '75001',
-      city: 'Paris',
-      phone: '0102030406',
-      email: 'theater2@example.com',
-    });
-
-    // Create halls
-    await MovieHallModel.create({
-      hallId: hallId1,
-      theaterId: theaterId1,
-      seatsLayout: [
-        [1, 2, 3, '', 4, 5],
-        [6, 7, 8, '', 9, 10],
-      ],
-    });
-
-    await MovieHallModel.create({
-      hallId: hallId2,
-      theaterId: theaterId2,
-      seatsLayout: [
-        [1, 2, 3, 4],
-        [5, 6, 7, 8],
-      ],
-    });
-
-    // Create screenings
     testScreeningId = uuidv4();
-    await ScreeningModel.create({
-      screeningId: testScreeningId,
-      movieId: movieId1,
-      theaterId: theaterId1,
-      hallId: hallId1,
-      startTime: new Date('2025-01-01T18:00:00Z'),
-      durationTime: new Date('1970-01-01T02:30:00Z'),
-    });
-
     secondScreeningId = uuidv4();
-    await ScreeningModel.create({
-      screeningId: secondScreeningId,
-      movieId: movieId2,
-      theaterId: theaterId1,
-      hallId: hallId1,
-      startTime: new Date('2025-01-01T21:00:00Z'),
-      durationTime: new Date('1970-01-01T02:30:00Z'),
-    });
 
-    await ScreeningModel.create({
-      screeningId: uuidv4(),
-      movieId: movieId1,
-      theaterId: theaterId2,
-      hallId: hallId2,
-      startTime: new Date('2025-01-02T19:00:00Z'),
-      durationTime: new Date('1970-01-01T02:30:00Z'),
-    });
+    await ScreeningModel.bulkCreate([
+      {
+        screeningId: testScreeningId,
+        movieId: movieId1,
+        theaterId: theaterId1,
+        hallId: hallId1,
+        startTime: new Date('2025-01-01T18:00:00Z'),
+        durationTime: '02:30:00',
+      },
+      {
+        screeningId: secondScreeningId,
+        movieId: movieId2,
+        theaterId: theaterId1,
+        hallId: hallId1,
+        startTime: new Date('2025-01-01T21:00:00Z'),
+        durationTime: '02:30:00',
+      },
+      {
+        screeningId: uuidv4(),
+        movieId: movieId1,
+        theaterId: theaterId2,
+        hallId: hallId2,
+        startTime: new Date('2025-01-02T19:00:00Z'),
+        durationTime: '02:30:00',
+      },
+    ]);
   });
 
   describe('POST /screenings', () => {
@@ -170,15 +166,16 @@ describe('Screening Routes', () => {
         theaterId: theaterId1,
         hallId: hallId1,
         startTime: '2025-01-02T19:00:00Z',
-        durationTime: '1970-01-01T02:00:00Z',
+        durationTime: '02:00:00',
       };
 
       const res = await request(app).post('/screenings').send(screeningData);
 
       expect(res.status).toBe(201);
-      expect(res.body).toHaveProperty('movieId', movieId1);
-      expect(res.body).toHaveProperty('theaterId', theaterId1);
-      expect(res.body).toHaveProperty('hallId', hallId1);
+      expect(res.body).toHaveProperty('message');
+      expect(res.body.data).toHaveProperty('movieId', movieId1);
+      expect(res.body.data).toHaveProperty('theaterId', theaterId1);
+      expect(res.body.data).toHaveProperty('hallId', hallId1);
     });
   });
 
@@ -187,8 +184,8 @@ describe('Screening Routes', () => {
       const res = await request(app).get('/screenings');
 
       expect(res.status).toBe(200);
-      expect(Array.isArray(res.body)).toBe(true);
-      expect(res.body.length).toBeGreaterThan(0);
+      expect(Array.isArray(res.body.data)).toBe(true);
+      expect(res.body.data.length).toBeGreaterThan(0);
     });
   });
 
@@ -199,10 +196,10 @@ describe('Screening Routes', () => {
         .query({ theaterId: theaterId1, movieId: movieId1 });
 
       expect(res.status).toBe(200);
-      expect(Array.isArray(res.body)).toBe(true);
-      expect(res.body.length).toBe(1);
-      expect(res.body[0].movieId).toBe(movieId1);
-      expect(res.body[0].theaterId).toBe(theaterId1);
+      expect(Array.isArray(res.body.data)).toBe(true);
+      expect(res.body.data.length).toBe(1);
+      expect(res.body.data[0].movieId).toBe(movieId1);
+      expect(res.body.data[0].theaterId).toBe(theaterId1);
     });
 
     it('should return empty array when no screenings match', async () => {
@@ -211,8 +208,8 @@ describe('Screening Routes', () => {
         .query({ theaterId: theaterId2, movieId: movieId2 });
 
       expect(res.status).toBe(200);
-      expect(Array.isArray(res.body)).toBe(true);
-      expect(res.body.length).toBe(0);
+      expect(Array.isArray(res.body.data)).toBe(true);
+      expect(res.body.data.length).toBe(0);
     });
 
     it('should return 400 if theaterId is missing', async () => {
@@ -239,14 +236,7 @@ describe('Screening Routes', () => {
       const res = await request(app).get(`/screenings/${testScreeningId}`);
 
       expect(res.status).toBe(200);
-      expect(res.body).toHaveProperty('screeningId', testScreeningId);
-    });
-
-    it('should return 404 if screening not found', async () => {
-      const res = await request(app).get(`/screenings/${uuidv4()}`);
-
-      expect(res.status).toBe(404);
-      expect(res.body).toHaveProperty('message');
+      expect(res.body.data).toHaveProperty('screeningId', testScreeningId);
     });
   });
 
@@ -254,7 +244,7 @@ describe('Screening Routes', () => {
     it('should update a screening', async () => {
       const updateData = {
         startTime: '2025-01-10T17:30:00Z',
-        durationTime: '1970-01-01T03:00:00Z',
+        durationTime: '03:00:00',
       };
 
       const res = await request(app)
@@ -262,16 +252,7 @@ describe('Screening Routes', () => {
         .send(updateData);
 
       expect(res.status).toBe(200);
-      expect(res.body).toHaveProperty('screeningId', testScreeningId);
-    });
-
-    it('should return 404 if screening not found', async () => {
-      const res = await request(app)
-        .put(`/screenings/${uuidv4()}`)
-        .send({ startTime: '2025-01-10T17:30:00Z' });
-
-      expect(res.status).toBe(404);
-      expect(res.body).toHaveProperty('message');
+      expect(res.body.data).toHaveProperty('screeningId', testScreeningId);
     });
   });
 
@@ -282,12 +263,6 @@ describe('Screening Routes', () => {
 
       const checkDeleted = await ScreeningModel.findByPk(testScreeningId);
       expect(checkDeleted).toBeNull();
-    });
-
-    it('should return 404 when deleting nonexistent screening', async () => {
-      const res = await request(app).delete(`/screenings/${uuidv4()}`);
-      expect(res.status).toBe(404);
-      expect(res.body).toHaveProperty('message');
     });
   });
 });

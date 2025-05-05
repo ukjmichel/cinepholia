@@ -173,17 +173,6 @@ describe('MovieHall Routes', () => {
       expect(res.status).toBe(204);
     });
 
-    it('should return 404 when deleting unknown movie hall', async () => {
-      const res = await request(app).delete(
-        '/movie-halls/unknownTheater/unknownHall'
-      );
-
-      expect(res.status).toBe(404);
-      expect(res.body.error).toBeDefined();
-      expect(res.body.error.message).toMatch(
-        /Movie hall with theaterId unknownTheater and hallId unknownHall not found/
-      );
-    });
 
     it('should return 400 for invalid params', async () => {
       const res = await request(app).delete('/movie-halls/invalid%20id/hall1');

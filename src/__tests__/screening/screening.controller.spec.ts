@@ -1,7 +1,4 @@
-import request from 'supertest';
-import express, { Express } from 'express';
 import { Request, Response, NextFunction } from 'express';
-
 import {
   handleCreateScreening,
   handleGetScreeningById,
@@ -11,269 +8,212 @@ import {
   handleSearchScreenings,
   screeningService,
 } from '../../controllers/screening.controller';
-
 import { ScreeningAttributes } from '../../models/screening.model';
-import { ScreeningService } from '../../services/screening.service';
+import { NotFoundError } from '../../errors/NotFoundError';
 
-jest.mock('../../services/screening.service'); // <-- mock class!
-
-const MockScreeningService = ScreeningService as jest.MockedClass<
-  typeof ScreeningService
->;
+jest.mock('../../services/screening.service'); // Mock the whole service
 
 describe('Screening Controller', () => {
-  let app: Express;
-  let mockService: ScreeningService;
+  let req: Partial<Request>;
+  let res: Partial<Response>;
+  let next: jest.Mock;
+  let jsonMock: jest.Mock;
+  let statusMock: jest.Mock;
+  let sendMock: jest.Mock;
 
-  beforeAll(() => {
-    app = express();
-    app.use(express.json());
-
-    mockService = new MockScreeningService();
-
-    // IMPORTANT: Define more specific routes first!
-    // Fix: Move the search route before the :screeningId route
-    app.get('/screenings/search', (req, res) =>
-      handleSearchScreenings(req, res, {} as NextFunction)
-    );
-
-    // inject manually a version of handlers using mockService
-    app.post('/screenings', (req, res) =>
-      handleCreateScreening(req, res, {} as NextFunction)
-    );
-    app.get('/screenings', (req, res) =>
-      handleGetAllScreenings(req, res, {} as NextFunction)
-    );
-    app.get('/screenings/:screeningId', (req, res) =>
-      handleGetScreeningById(req, res, {} as NextFunction)
-    );
-    app.put('/screenings/:screeningId', (req, res) =>
-      handleUpdateScreening(req, res, {} as NextFunction)
-    );
-    app.delete('/screenings/:screeningId', (req, res) =>
-      handleDeleteScreening(req, res, {} as NextFunction)
-    );
-  });
-
-  beforeEach(() => {
-    jest.clearAllMocks();
-
-    // Mock getScreeningByTheaterAndMovieId for the success test
-    (
-      mockService.getScreeningByTheaterAndMovieId as jest.Mock
-    ).mockResolvedValue([screeningMock]);
-  });
-
-  const screeningMock: ScreeningAttributes = {
+  const mockScreening: ScreeningAttributes = {
     screeningId: 'screening-uuid',
     movieId: 'movie-uuid',
     theaterId: 'theater-uuid',
     hallId: 'hall-uuid',
-    startTime: new Date(),
-    durationTime: new Date(),
+    startTime: new Date('2025-01-01T18:00:00Z'),
+    durationTime: '02:30:00',
   };
 
-  describe('POST /screenings', () => {
-    it('should create a screening', async () => {
+  beforeEach(() => {
+    jsonMock = jest.fn();
+    sendMock = jest.fn();
+    statusMock = jest.fn(function (this: any) {
+      return this;
+    }); // Important: make statusMock return res
+    req = {};
+    res = {
+      status: statusMock,
+      json: jsonMock,
+      send: sendMock,
+    } as unknown as Response;
+    next = jest.fn();
+    jest.clearAllMocks();
+  });
+
+  describe('handleCreateScreening', () => {
+    it('should create a screening successfully', async () => {
       (screeningService.createScreening as jest.Mock).mockResolvedValue(
-        screeningMock
+        mockScreening
       );
+      req.body = mockScreening;
 
-      const response = await request(app)
-        .post('/screenings')
-        .send(screeningMock);
+      await handleCreateScreening(req as Request, res as Response, next);
 
-      expect(response.status).toBe(201);
-      expect(response.body.screeningId).toBe('screening-uuid');
+      expect(statusMock).toHaveBeenCalledWith(201);
+      expect(jsonMock).toHaveBeenCalledWith({
+        message: 'Screening successfully created',
+        data: mockScreening,
+      });
     });
 
-    it('should handle errors when creating a screening', async () => {
-      (screeningService.createScreening as jest.Mock).mockRejectedValue(
-        new Error('Create failed')
-      );
+    it('should call next with error on failure', async () => {
+      const error = new Error('Database error');
+      (screeningService.createScreening as jest.Mock).mockRejectedValue(error);
+      req.body = mockScreening;
 
-      const response = await request(app)
-        .post('/screenings')
-        .send(screeningMock);
+      await handleCreateScreening(req as Request, res as Response, next);
 
-      expect(response.status).toBe(500);
-      expect(response.body.message).toBe('Failed to create screening');
+      expect(next).toHaveBeenCalledWith(error);
     });
   });
 
-  describe('GET /screenings', () => {
-    it('should get all screenings', async () => {
+  describe('handleGetScreeningById', () => {
+    it('should return a screening if found', async () => {
+      (screeningService.getScreeningById as jest.Mock).mockResolvedValue(
+        mockScreening
+      );
+      req.params = { screeningId: 'screening-uuid' };
+
+      await handleGetScreeningById(req as Request, res as Response, next);
+
+      expect(statusMock).toHaveBeenCalledWith(200);
+      expect(jsonMock).toHaveBeenCalledWith({
+        message: 'Screening found',
+        data: mockScreening,
+      });
+    });
+
+    it('should call next if unknown error', async () => {
+      const error = new Error('Unknown error');
+      (screeningService.getScreeningById as jest.Mock).mockRejectedValue(error);
+      req.params = { screeningId: 'screening-uuid' };
+
+      await handleGetScreeningById(req as Request, res as Response, next);
+
+      expect(next).toHaveBeenCalledWith(error);
+    });
+  });
+
+  describe('handleGetAllScreenings', () => {
+    it('should return all screenings', async () => {
       (screeningService.getAllScreenings as jest.Mock).mockResolvedValue([
-        screeningMock,
+        mockScreening,
       ]);
 
-      const response = await request(app).get('/screenings');
+      await handleGetAllScreenings(req as Request, res as Response, next);
 
-      expect(response.status).toBe(200);
-      expect(Array.isArray(response.body)).toBe(true);
-    });
-
-    it('should handle errors when getting all screenings', async () => {
-      (screeningService.getAllScreenings as jest.Mock).mockRejectedValue(
-        new Error('Fetch failed')
-      );
-
-      const response = await request(app).get('/screenings');
-
-      expect(response.status).toBe(500);
-      expect(response.body.message).toBe('Failed to fetch screenings');
-    });
-  });
-
-  describe('GET /screenings/:screeningId', () => {
-    it('should get screening by ID', async () => {
-      (screeningService.getScreeningById as jest.Mock).mockResolvedValue(
-        screeningMock
-      );
-
-      const response = await request(app).get('/screenings/screening-uuid');
-
-      expect(response.status).toBe(200);
-      expect(response.body.screeningId).toBe('screening-uuid');
-    });
-
-    it('should return 404 if screening not found', async () => {
-      (screeningService.getScreeningById as jest.Mock).mockResolvedValue(null);
-
-      const response = await request(app).get('/screenings/unknown-id');
-
-      expect(response.status).toBe(404);
-      expect(response.body.message).toBe(
-        'Screening with ID unknown-id not found'
-      );
-    });
-
-    it('should handle errors when getting screening by ID', async () => {
-      (screeningService.getScreeningById as jest.Mock).mockRejectedValue(
-        new Error('Fetch failed')
-      );
-
-      const response = await request(app).get('/screenings/screening-uuid');
-
-      expect(response.status).toBe(500);
-      expect(response.body.message).toBe('Failed to fetch screening');
-    });
-  });
-
-  describe('PUT /screenings/:screeningId', () => {
-    it('should update a screening', async () => {
-      (screeningService.updateScreening as jest.Mock).mockResolvedValue({
-        ...screeningMock,
-        durationTime: new Date(),
+      expect(statusMock).toHaveBeenCalledWith(200);
+      expect(jsonMock).toHaveBeenCalledWith({
+        message: 'List of screenings retrieved successfully',
+        data: [mockScreening],
       });
-
-      const response = await request(app)
-        .put('/screenings/screening-uuid')
-        .send({ durationTime: new Date() });
-
-      expect(response.status).toBe(200);
-      expect(response.body.screeningId).toBe('screening-uuid');
     });
 
-    it('should return 404 if screening to update not found', async () => {
-      (screeningService.updateScreening as jest.Mock).mockResolvedValue(null);
+    it('should call next if error', async () => {
+      const error = new Error('Unknown error');
+      (screeningService.getAllScreenings as jest.Mock).mockRejectedValue(error);
 
-      const response = await request(app)
-        .put('/screenings/unknown-id')
-        .send({ durationTime: new Date() });
+      await handleGetAllScreenings(req as Request, res as Response, next);
 
-      expect(response.status).toBe(404);
-      expect(response.body.message).toBe(
-        'Screening with ID unknown-id not found'
-      );
-    });
-
-    it('should handle errors when updating a screening', async () => {
-      (screeningService.updateScreening as jest.Mock).mockRejectedValue(
-        new Error('Update failed')
-      );
-
-      const response = await request(app)
-        .put('/screenings/screening-uuid')
-        .send({ durationTime: new Date() });
-
-      expect(response.status).toBe(500);
-      expect(response.body.message).toBe('Failed to update screening');
+      expect(next).toHaveBeenCalledWith(error);
     });
   });
 
-  describe('DELETE /screenings/:screeningId', () => {
-    it('should delete a screening', async () => {
-      (screeningService.deleteScreening as jest.Mock).mockResolvedValue(true);
+  describe('handleUpdateScreening', () => {
+    it('should update screening successfully', async () => {
+      (screeningService.updateScreening as jest.Mock).mockResolvedValue(
+        mockScreening
+      );
+      req.params = { screeningId: 'screening-uuid' };
+      req.body = { startTime: new Date() };
 
-      const response = await request(app).delete('/screenings/screening-uuid');
+      await handleUpdateScreening(req as Request, res as Response, next);
 
-      expect(response.status).toBe(204);
+      expect(statusMock).toHaveBeenCalledWith(200);
+      expect(jsonMock).toHaveBeenCalledWith({
+        message: 'Screening successfully updated',
+        data: mockScreening,
+      });
     });
 
-    it('should return 404 if screening to delete not found', async () => {
-      (screeningService.deleteScreening as jest.Mock).mockResolvedValue(false);
+    it('should call next on unknown error', async () => {
+      const error = new Error('Update error');
+      (screeningService.updateScreening as jest.Mock).mockRejectedValue(error);
+      req.params = { screeningId: 'screening-uuid' };
 
-      const response = await request(app).delete('/screenings/unknown-id');
+      await handleUpdateScreening(req as Request, res as Response, next);
 
-      expect(response.status).toBe(404);
-      expect(response.body.message).toBe(
-        'Screening with ID unknown-id not found'
-      );
-    });
-
-    it('should handle errors when deleting a screening', async () => {
-      (screeningService.deleteScreening as jest.Mock).mockRejectedValue(
-        new Error('Delete failed')
-      );
-
-      const response = await request(app).delete('/screenings/screening-uuid');
-
-      expect(response.status).toBe(500);
-      expect(response.body.message).toBe('Failed to delete screening');
+      expect(next).toHaveBeenCalledWith(error);
     });
   });
 
-  describe('GET /screenings/search', () => {
-    it('should return screenings when theaterId and movieId are provided', async () => {
-      // Fix: Use screeningService here to match the actual implementation
-      (
-        screeningService.getScreeningByTheaterAndMovieId as jest.Mock
-      ).mockResolvedValue([{ screeningId: 'screening-uuid' }]);
-
-      const response = await request(app)
-        .get('/screenings/search')
-        .query({ theaterId: 'theater-uuid', movieId: 'movie-uuid' });
-
-      expect(response.status).toBe(200);
-      expect(Array.isArray(response.body)).toBe(true);
-      expect(response.body[0].screeningId).toBe('screening-uuid');
-    });
-
-    it('should return 400 if theaterId or movieId is missing', async () => {
-      const response = await request(app)
-        .get('/screenings/search')
-        .query({ theaterId: 'theater-uuid' }); // missing movieId
-
-      expect(response.status).toBe(400);
-      expect(response.body.error).toBe(
-        'Missing theaterId or movieId in query parameters'
+  describe('handleDeleteScreening', () => {
+    it('should delete screening successfully', async () => {
+      (screeningService.deleteScreening as jest.Mock).mockResolvedValue(
+        undefined
       );
+      req.params = { screeningId: 'screening-uuid' };
+
+      await handleDeleteScreening(req as Request, res as Response, next);
+
+      expect(statusMock).toHaveBeenCalledWith(204);
+      expect(sendMock).toHaveBeenCalled();
     });
 
-    it('should handle errors when searching screenings', async () => {
-      // Fix: Use screeningService here to match the actual implementation
+    it('should call next on unknown error', async () => {
+      const error = new Error('Delete error');
+      (screeningService.deleteScreening as jest.Mock).mockRejectedValue(error);
+      req.params = { screeningId: 'screening-uuid' };
+
+      await handleDeleteScreening(req as Request, res as Response, next);
+
+      expect(next).toHaveBeenCalledWith(error);
+    });
+  });
+
+  describe('handleSearchScreenings', () => {
+    it('should return screenings if theaterId and movieId provided', async () => {
       (
-        screeningService.getScreeningByTheaterAndMovieId as jest.Mock
-      ).mockRejectedValue(new Error('Fetch failed'));
+        screeningService.getScreeningsByTheaterAndMovieId as jest.Mock
+      ).mockResolvedValue([mockScreening]);
+      req.query = { theaterId: 'theater-uuid', movieId: 'movie-uuid' };
 
-      const response = await request(app)
-        .get('/screenings/search')
-        .query({ theaterId: 'theater-uuid', movieId: 'movie-uuid' });
+      await handleSearchScreenings(req as Request, res as Response, next);
 
-      expect(response.status).toBe(500);
-      expect(response.body.error).toBe('Failed to search screenings');
-      expect(response.body.detail).toBe('Fetch failed');
+      expect(statusMock).toHaveBeenCalledWith(200);
+      expect(jsonMock).toHaveBeenCalledWith({
+        message: 'Screenings retrieved successfully',
+        data: [mockScreening],
+      });
+    });
+
+    it('should return 400 if missing theaterId or movieId', async () => {
+      req.query = { theaterId: 'theater-uuid' }; // Missing movieId
+
+      await handleSearchScreenings(req as Request, res as Response, next);
+
+      expect(statusMock).toHaveBeenCalledWith(400);
+      expect(jsonMock).toHaveBeenCalledWith({
+        error: 'Both theaterId and movieId query parameters are required',
+      });
+    });
+
+    it('should call next if error', async () => {
+      const error = new Error('Search error');
+      (
+        screeningService.getScreeningsByTheaterAndMovieId as jest.Mock
+      ).mockRejectedValue(error);
+      req.query = { theaterId: 'theater-uuid', movieId: 'movie-uuid' };
+
+      await handleSearchScreenings(req as Request, res as Response, next);
+
+      expect(next).toHaveBeenCalledWith(error);
     });
   });
 });

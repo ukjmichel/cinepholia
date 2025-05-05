@@ -3,7 +3,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { ScreeningModel } from '../../models/screening.model';
 import { MovieModel } from '../../models/movie.model';
 import { MovieTheaterModel } from '../../models/movietheater.model';
-import { MovieHallModel } from '../../models/movieHall.model'; // Fixed casing in import path
+import { MovieHallModel } from '../../models/movieHall.model';
 
 describe('ScreeningModel', () => {
   let sequelize: Sequelize;
@@ -53,13 +53,13 @@ describe('ScreeningModel', () => {
       email: 'theater@example.com',
     });
 
-    // 3. Create a MovieHall - pass the array directly instead of stringifying it
+    // 3. Create a MovieHall
     await MovieHallModel.create({
       hallId: 'hall123',
-      theaterId: 'theater123', // important relationship link
+      theaterId: 'theater123',
       seatsLayout: [
-        [1, 2, 3, "", 4, 5],
-        [6, 7, 8, "", 9, 10],
+        [1, 2, 3, '', 4, 5],
+        [6, 7, 8, '', 9, 10],
       ],
     });
 
@@ -70,7 +70,7 @@ describe('ScreeningModel', () => {
       theaterId: 'theater123',
       hallId: 'hall123',
       startTime: new Date('2025-01-01T18:00:00Z'),
-      durationTime: new Date('1970-01-01T02:30:00Z'), // Just the time part: 2 hours and 30 minutes
+      durationTime: '02:30:00', // <-- send a string, not a Date ✅
     };
 
     const screening = await ScreeningModel.create(screeningData);
@@ -80,10 +80,7 @@ describe('ScreeningModel', () => {
     expect(screening.theaterId).toBe('theater123');
     expect(screening.hallId).toBe('hall123');
 
-    // Check that the time part is correct (ignoring the date part)
-    const durationTimeOnly = new Date(screening.durationTime);
-    expect(durationTimeOnly.getUTCHours()).toBe(2);
-    expect(durationTimeOnly.getUTCMinutes()).toBe(30);
-    expect(durationTimeOnly.getUTCSeconds()).toBe(0);
+    // Check that the duration string is exactly correct
+    expect(screening.durationTime).toBe('02:30:00'); // ✅
   });
 });

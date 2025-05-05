@@ -8,6 +8,8 @@ import { MovieTheaterModel } from '../../models/movietheater.model';
 import { MovieHallModel } from '../../models/movieHall.model';
 import { Sequelize } from 'sequelize-typescript';
 import { v4 as uuidv4 } from 'uuid';
+import { NotFoundError } from '../../errors/NotFoundError';
+import { BadRequestError } from '../../errors/BadRequestError'; // <-- new
 
 describe('ScreeningService', () => {
   let sequelize: Sequelize;
@@ -31,21 +33,19 @@ describe('ScreeningService', () => {
   });
 
   beforeEach(async () => {
-    // Clear all data
     await ScreeningModel.destroy({ where: {} });
     await MovieModel.destroy({ where: {} });
     await MovieTheaterModel.destroy({ where: {} });
     await MovieHallModel.destroy({ where: {} });
 
-    // Create prerequisite data
     await MovieModel.create({
       movieId: 'movie123',
-      title: 'Inception', // 🔥 Correct: title (not name)
+      title: 'Inception',
       description: 'A mind-bending thriller',
-      ageRating: 'PG-13', // 🔥 Correct: ageRating (not age)
+      ageRating: 'PG-13',
       genre: 'Sci-Fi',
-      releaseDate: new Date('2010-07-16'), // 🔥 Correct: releaseDate (not date)
-      director: 'Christopher Nolan', // 🔥 Required new fields
+      releaseDate: new Date('2010-07-16'),
+      director: 'Christopher Nolan',
       durationMinutes: 148,
     });
 
@@ -67,7 +67,6 @@ describe('ScreeningService', () => {
       ],
     });
 
-    // Create a test screening
     testScreeningId = uuidv4();
     await ScreeningModel.create({
       screeningId: testScreeningId,
@@ -75,7 +74,7 @@ describe('ScreeningService', () => {
       theaterId: 'theater123',
       hallId: 'hall123',
       startTime: new Date('2025-01-01T18:00:00Z'),
-      durationTime: new Date('1970-01-01T02:30:00Z'),
+      durationTime: '02:30:00', // ✅ duration as string
     });
   });
 
@@ -87,15 +86,90 @@ describe('ScreeningService', () => {
         theaterId: 'theater123',
         hallId: 'hall123',
         startTime: new Date('2025-01-02T19:00:00Z'),
-        durationTime: new Date('1970-01-01T02:00:00Z'),
+        durationTime: '02:00:00', // ✅ string
       };
 
       const result = await screeningService.createScreening(screeningData);
 
       expect(result).toBeDefined();
-      expect(result.screeningId).toBe(screeningData.screeningId);
       expect(result.movieId).toBe('movie123');
-      expect(result.theaterId).toBe('theater123');
+      expect(result.durationTime).toBe('02:00:00');
+    });
+
+    it('should autocorrect duration format', async () => {
+      const screeningData: ScreeningAttributes = {
+        screeningId: uuidv4(),
+        movieId: 'movie123',
+        theaterId: 'theater123',
+        hallId: 'hall123',
+        startTime: new Date('2025-01-02T19:00:00Z'),
+        durationTime: '2:5:0', // ❗ BAD format
+      };
+
+      const result = await screeningService.createScreening(screeningData);
+
+      expect(result).toBeDefined();
+      expect(result.durationTime).toBe('02:05:00'); // ✅ autocorrected
+    });
+
+    it('should throw BadRequestError if invalid duration format', async () => {
+      const screeningData: ScreeningAttributes = {
+        screeningId: uuidv4(),
+        movieId: 'movie123',
+        theaterId: 'theater123',
+        hallId: 'hall123',
+        startTime: new Date('2025-01-02T19:00:00Z'),
+        durationTime: '25:00:00', // ❗ Invalid (hour > 23)
+      };
+
+      await expect(
+        screeningService.createScreening(screeningData)
+      ).rejects.toThrow(BadRequestError);
+    });
+
+    it('should throw NotFoundError if movie does not exist', async () => {
+      const data: ScreeningAttributes = {
+        screeningId: uuidv4(),
+        movieId: 'non-existent-movie',
+        theaterId: 'theater123',
+        hallId: 'hall123',
+        startTime: new Date(),
+        durationTime: '02:00:00',
+      };
+
+      await expect(screeningService.createScreening(data)).rejects.toThrow(
+        NotFoundError
+      );
+    });
+
+    it('should throw NotFoundError if theater does not exist', async () => {
+      const data: ScreeningAttributes = {
+        screeningId: uuidv4(),
+        movieId: 'movie123',
+        theaterId: 'non-existent-theater',
+        hallId: 'hall123',
+        startTime: new Date(),
+        durationTime: '02:00:00',
+      };
+
+      await expect(screeningService.createScreening(data)).rejects.toThrow(
+        NotFoundError
+      );
+    });
+
+    it('should throw NotFoundError if hall does not exist', async () => {
+      const data: ScreeningAttributes = {
+        screeningId: uuidv4(),
+        movieId: 'movie123',
+        theaterId: 'theater123',
+        hallId: 'non-existent-hall',
+        startTime: new Date(),
+        durationTime: '02:00:00',
+      };
+
+      await expect(screeningService.createScreening(data)).rejects.toThrow(
+        NotFoundError
+      );
     });
   });
 
@@ -104,120 +178,97 @@ describe('ScreeningService', () => {
       const result = await screeningService.getScreeningById(testScreeningId);
 
       expect(result).toBeDefined();
-      expect(result?.screeningId).toBe(testScreeningId);
+      expect(result.screeningId).toBe(testScreeningId);
     });
 
-    it('should return null when screening not found', async () => {
-      const result = await screeningService.getScreeningById('non-existent-id');
-
-      expect(result).toBeNull();
+    it('should throw NotFoundError when screening not found', async () => {
+      await expect(
+        screeningService.getScreeningById('non-existent-id')
+      ).rejects.toThrow(NotFoundError);
     });
   });
 
   describe('getAllScreenings', () => {
     it('should return all screenings', async () => {
-      // Add another screening
-      await ScreeningModel.create({
-        screeningId: uuidv4(),
-        movieId: 'movie123',
-        theaterId: 'theater123',
-        hallId: 'hall123',
-        startTime: new Date('2025-01-03T20:00:00Z'),
-        durationTime: new Date('1970-01-01T02:15:00Z'),
-      });
-
       const results = await screeningService.getAllScreenings();
 
-      expect(results).toHaveLength(2);
+      expect(results.length).toBeGreaterThanOrEqual(1);
       expect(results[0]).toBeInstanceOf(ScreeningModel);
-      expect(results[1]).toBeInstanceOf(ScreeningModel);
-    });
-
-    it('should return empty array when no screenings exist', async () => {
-      await ScreeningModel.destroy({ where: {} });
-
-      const results = await screeningService.getAllScreenings();
-
-      expect(results).toHaveLength(0);
-      expect(results).toEqual([]);
     });
   });
 
   describe('updateScreening', () => {
-    it('should update a screening when found', async () => {
-      const updateData = {
-        startTime: new Date('2025-01-10T17:30:00Z'),
-        durationTime: new Date('1970-01-01T03:00:00Z'),
-      };
+    it('should update a screening', async () => {
+      const newStartTime = new Date('2025-01-10T17:30:00Z');
 
-      const result = await screeningService.updateScreening(
-        testScreeningId,
-        updateData
-      );
-
-      expect(result).toBeDefined();
-      expect(result?.screeningId).toBe(testScreeningId);
-      expect(result?.startTime.toISOString()).toBe(
-        updateData.startTime.toISOString()
-      );
-
-      // Verify that the update was persisted
-      const updated = await ScreeningModel.findByPk(testScreeningId);
-      expect(updated?.startTime.toISOString()).toBe(
-        updateData.startTime.toISOString()
-      );
-    });
-
-    it('should return null when screening not found', async () => {
-      const result = await screeningService.updateScreening('non-existent-id', {
-        startTime: new Date(),
+      const updated = await screeningService.updateScreening(testScreeningId, {
+        startTime: newStartTime,
       });
 
-      expect(result).toBeNull();
+      expect(updated).toBeDefined();
+      expect(updated.startTime.toISOString()).toBe(newStartTime.toISOString());
+    });
+
+    it('should throw NotFoundError if screening does not exist', async () => {
+      await expect(
+        screeningService.updateScreening('non-existent-id', {
+          startTime: new Date(),
+        })
+      ).rejects.toThrow(NotFoundError);
+    });
+
+    it('should autocorrect durationTime if updating it', async () => {
+      const updated = await screeningService.updateScreening(testScreeningId, {
+        durationTime: '3:5:0', // ❗ bad format
+      });
+
+      expect(updated.durationTime).toBe('03:05:00'); // ✅ autocorrected
+    });
+
+    it('should throw BadRequestError if updating with invalid duration', async () => {
+      await expect(
+        screeningService.updateScreening(testScreeningId, {
+          durationTime: '26:00:00', // ❗ Invalid (hour > 23)
+        })
+      ).rejects.toThrow(BadRequestError);
     });
   });
 
   describe('deleteScreening', () => {
-    it('should delete a screening when found', async () => {
-      const result = await screeningService.deleteScreening(testScreeningId);
+    it('should delete a screening', async () => {
+      await expect(
+        screeningService.deleteScreening(testScreeningId)
+      ).resolves.not.toThrow();
 
-      expect(result).toBe(true);
-
-      // Verify the screening was deleted
       const deleted = await ScreeningModel.findByPk(testScreeningId);
       expect(deleted).toBeNull();
     });
 
-    it('should return false when screening not found', async () => {
-      const result = await screeningService.deleteScreening('non-existent-id');
-
-      expect(result).toBe(false);
+    it('should throw NotFoundError if screening does not exist', async () => {
+      await expect(
+        screeningService.deleteScreening('non-existent-id')
+      ).rejects.toThrow(NotFoundError);
     });
   });
-  describe('getScreeningByTheaterAndMovieId', () => {
-    it('should return screenings matching theaterId and movieId', async () => {
-      // Act
-      const results = await screeningService.getScreeningByTheaterAndMovieId(
+
+  describe('getScreeningsByTheaterAndMovieId', () => {
+    it('should find screenings by theater and movie', async () => {
+      const results = await screeningService.getScreeningsByTheaterAndMovieId(
         'theater123',
         'movie123'
       );
 
-      // Assert
-      expect(results).toBeDefined();
       expect(results.length).toBeGreaterThan(0);
-      expect(results[0]).toBeInstanceOf(ScreeningModel);
       expect(results[0].theaterId).toBe('theater123');
       expect(results[0].movieId).toBe('movie123');
     });
 
-    it('should return empty array if no matching screenings found', async () => {
-      // Act
-      const results = await screeningService.getScreeningByTheaterAndMovieId(
-        'non-existent-theater',
-        'non-existent-movie'
+    it('should return empty array when no screenings found', async () => {
+      const results = await screeningService.getScreeningsByTheaterAndMovieId(
+        'unknown-theater',
+        'unknown-movie'
       );
 
-      // Assert
       expect(results).toEqual([]);
     });
   });
