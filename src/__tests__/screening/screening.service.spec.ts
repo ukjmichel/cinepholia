@@ -9,7 +9,7 @@ import { MovieHallModel } from '../../models/movieHall.model';
 import { Sequelize } from 'sequelize-typescript';
 import { v4 as uuidv4 } from 'uuid';
 import { NotFoundError } from '../../errors/NotFoundError';
-import { BadRequestError } from '../../errors/BadRequestError'; // <-- new
+import { BadRequestError } from '../../errors/BadRequestError'; // ✅
 
 describe('ScreeningService', () => {
   let sequelize: Sequelize;
@@ -74,7 +74,7 @@ describe('ScreeningService', () => {
       theaterId: 'theater123',
       hallId: 'hall123',
       startTime: new Date('2025-01-01T18:00:00Z'),
-      durationTime: '02:30:00', // ✅ duration as string
+      durationTime: '02:30:00',
     });
   });
 
@@ -86,7 +86,7 @@ describe('ScreeningService', () => {
         theaterId: 'theater123',
         hallId: 'hall123',
         startTime: new Date('2025-01-02T19:00:00Z'),
-        durationTime: '02:00:00', // ✅ string
+        durationTime: '02:00:00',
       };
 
       const result = await screeningService.createScreening(screeningData);
@@ -103,13 +103,12 @@ describe('ScreeningService', () => {
         theaterId: 'theater123',
         hallId: 'hall123',
         startTime: new Date('2025-01-02T19:00:00Z'),
-        durationTime: '2:5:0', // ❗ BAD format
+        durationTime: '2:5:0',
       };
 
       const result = await screeningService.createScreening(screeningData);
 
-      expect(result).toBeDefined();
-      expect(result.durationTime).toBe('02:05:00'); // ✅ autocorrected
+      expect(result.durationTime).toBe('02:05:00');
     });
 
     it('should throw BadRequestError if invalid duration format', async () => {
@@ -119,12 +118,45 @@ describe('ScreeningService', () => {
         theaterId: 'theater123',
         hallId: 'hall123',
         startTime: new Date('2025-01-02T19:00:00Z'),
-        durationTime: '25:00:00', // ❗ Invalid (hour > 23)
+        durationTime: '25:00:00', // invalid hour
       };
 
       await expect(
         screeningService.createScreening(screeningData)
       ).rejects.toThrow(BadRequestError);
+    });
+
+    it('should throw BadRequestError if screening time conflicts', async () => {
+      const conflictingScreening: ScreeningAttributes = {
+        screeningId: uuidv4(),
+        movieId: 'movie123',
+        theaterId: 'theater123',
+        hallId: 'hall123',
+        // 🕓 Start during the existing screening!
+        startTime: new Date('2025-01-01T19:00:00Z'),
+        durationTime: '01:00:00',
+      };
+
+      await expect(
+        screeningService.createScreening(conflictingScreening)
+      ).rejects.toThrow(BadRequestError);
+    });
+
+    it('should allow non-conflicting screening same day', async () => {
+      const nonConflictingScreening: ScreeningAttributes = {
+        screeningId: uuidv4(),
+        movieId: 'movie123',
+        theaterId: 'theater123',
+        hallId: 'hall123',
+        // ✅ After the previous screening ends
+        startTime: new Date('2025-01-01T21:00:00Z'),
+        durationTime: '01:30:00',
+      };
+
+      const result = await screeningService.createScreening(nonConflictingScreening);
+
+      expect(result).toBeDefined();
+      expect(result.startTime.toISOString()).toBe('2025-01-01T21:00:00.000Z');
     });
 
     it('should throw NotFoundError if movie does not exist', async () => {

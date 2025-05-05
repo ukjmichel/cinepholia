@@ -4,6 +4,7 @@ import { MovieTheaterModel } from '../models/movietheater.model';
 import { MovieHallModel } from '../models/movieHall.model';
 import { NotFoundError } from '../errors/NotFoundError';
 import { BadRequestError } from '../errors/BadRequestError';
+import { Op } from 'sequelize';
 
 /**
  * Helper to validate and auto-correct duration format
@@ -49,20 +50,54 @@ function validateAndCorrectDurationFormat(duration: string): string {
  */
 export class ScreeningService {
   /**
-   * Create a new screening after verifying movie, theater, and hall exist.
-   * @param data - The screening attributes
+   * Create a new screening after verifying:
+   * - The movie, theater, and hall exist.
+   * - The hall is available (no overlapping screenings) at the requested time.
+   *
+   * @param data - The screening attributes (movieId, theaterId, hallId, startTime, durationTime)
    * @returns Promise<ScreeningModel> - The created screening
-   * @throws NotFoundError if movie, theater, or hall is not found
+   *
+   * @throws NotFoundError if the movie, theater, or hall is not found.
+   * @throws BadRequestError if another screening already occupies the requested time slot in the same hall.
    */
   async createScreening(data: ScreeningAttributes): Promise<ScreeningModel> {
-    // Validate related entities in parallel
-    const [movie, theater, hall] = await Promise.all([
+    // ✅ Validate and correct durationTime immediately
+    data.durationTime = validateAndCorrectDurationFormat(data.durationTime);
+
+    const newStartTime = new Date(data.startTime); // 📌 parse it once here
+
+    const [movie, theater, hall, screenings] = await Promise.all([
       MovieModel.findByPk(data.movieId),
       MovieTheaterModel.findByPk(data.theaterId),
       MovieHallModel.findOne({
         where: {
           theaterId: data.theaterId,
           hallId: data.hallId,
+        },
+      }),
+      // Fetch all screenings in the same hall and same day
+      ScreeningModel.findAll({
+        where: {
+          theaterId: data.theaterId,
+          hallId: data.hallId,
+          startTime: {
+            [Op.gte]: new Date(
+              newStartTime.getFullYear(),
+              newStartTime.getMonth(),
+              newStartTime.getDate(),
+              0,
+              0,
+              0
+            ),
+            [Op.lte]: new Date(
+              newStartTime.getFullYear(),
+              newStartTime.getMonth(),
+              newStartTime.getDate(),
+              23,
+              59,
+              59
+            ),
+          },
         },
       }),
     ]);
@@ -79,10 +114,32 @@ export class ScreeningService {
       );
     }
 
-    // ✅ Auto-correct and validate durationTime
-    data.durationTime = validateAndCorrectDurationFormat(data.durationTime);
+    const [hours, minutes, seconds] = data.durationTime.split(':').map(Number);
+    const newEndTime = new Date(
+      newStartTime.getTime() + (hours * 3600 + minutes * 60 + seconds) * 1000
+    );
 
-    // All validations passed
+    // Check if any existing screening overlaps
+    const hasConflict = screenings.some((existing) => {
+      const existingStart = new Date(existing.startTime);
+      const [exHours, exMinutes, exSeconds] = (existing.durationTime as string)
+        .split(':')
+        .map(Number);
+      const existingEnd = new Date(
+        existingStart.getTime() +
+          (exHours * 3600 + exMinutes * 60 + exSeconds) * 1000
+      );
+
+      return newStartTime < existingEnd && existingStart < newEndTime;
+    });
+
+    if (hasConflict) {
+      throw new BadRequestError(
+        'Another screening is already scheduled in this hall during the selected time slot.'
+      );
+    }
+
+    // ✅ Create the screening
     return await ScreeningModel.create(data);
   }
 
