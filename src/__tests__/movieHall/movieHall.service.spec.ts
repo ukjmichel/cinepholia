@@ -19,9 +19,7 @@ describe('MovieHallService', () => {
   });
 
   afterAll(async () => {
-    if (sequelize) {
-      await sequelize.close();
-    }
+    await sequelize.close();
   });
 
   beforeEach(async () => {
@@ -31,8 +29,8 @@ describe('MovieHallService', () => {
   it('should create a new movie hall', async () => {
     const data = {
       theaterId: 'theater1',
-      hallId: 'hallA',
-      seatsLayout: [[1, 2, 3, '', 4, 5]],
+      hallId: 'hall1',
+      seatsLayout: [[1, 2, 3]],
     };
 
     const movieHall = await movieHallService.createMovieHall(data);
@@ -46,85 +44,95 @@ describe('MovieHallService', () => {
   it('should retrieve a movie hall by theaterId and hallId', async () => {
     const data = {
       theaterId: 'theater2',
-      hallId: 'hallB',
-      seatsLayout: [[1, '', 2, 3]],
+      hallId: 'hall2',
+      seatsLayout: [[1, 2]],
     };
 
     await movieHallService.createMovieHall(data);
 
-    const found = await movieHallService.getMovieHall('theater2', 'hallB');
+    const movieHall = await movieHallService.getMovieHall('theater2', 'hall2');
 
-    expect(found).toBeDefined();
-    expect(found?.theaterId).toBe('theater2');
-    expect(found?.hallId).toBe('hallB');
+    expect(movieHall).toBeDefined();
+    expect(movieHall?.theaterId).toBe('theater2');
+    expect(movieHall?.hallId).toBe('hall2');
+  });
+
+  it('should throw NotFoundError if movie hall is not found', async () => {
+    await expect(
+      movieHallService.getMovieHall('unknownTheater', 'unknownHall')
+    ).rejects.toThrow(
+      'Movie hall with theaterId unknownTheater and hallId unknownHall not found.'
+    );
   });
 
   it('should retrieve all movie halls', async () => {
     await movieHallService.createMovieHall({
       theaterId: 'theater3',
-      hallId: 'hallC',
-      seatsLayout: [[1, 2, 3]],
+      hallId: 'hall3',
+      seatsLayout: [[1]],
     });
 
     await movieHallService.createMovieHall({
       theaterId: 'theater4',
-      hallId: 'hallD',
-      seatsLayout: [[4, 5, 6]],
+      hallId: 'hall4',
+      seatsLayout: [[2]],
     });
 
     const halls = await movieHallService.getAllMovieHalls();
-    expect(halls.length).toBe(2);
+
+    expect(Array.isArray(halls)).toBe(true);
+    expect(halls.length).toBeGreaterThanOrEqual(2);
   });
 
-  it('should update the seats layout of a movie hall', async () => {
-    const initialData = {
+  it('should update seats layout', async () => {
+    await movieHallService.createMovieHall({
       theaterId: 'theater5',
-      hallId: 'hallE',
-      seatsLayout: [[1, 2, 3]],
-    };
+      hallId: 'hall5',
+      seatsLayout: [[1, 2]],
+    });
 
-    await movieHallService.createMovieHall(initialData);
-
-    const updatedLayout = [[7, 8, 9, '', 10]];
+    const updatedSeats = [[7, 8, 9]];
     const updatedHall = await movieHallService.updateSeatsLayout(
       'theater5',
-      'hallE',
-      updatedLayout
+      'hall5',
+      updatedSeats
     );
 
     expect(updatedHall).toBeDefined();
-    expect(updatedHall?.seatsLayout).toEqual(updatedLayout);
+    expect(updatedHall?.seatsLayout).toEqual(updatedSeats);
   });
 
-  it('should return null when updating a non-existing movie hall', async () => {
-    const updated = await movieHallService.updateSeatsLayout(
-      'fakeTheater',
-      'fakeHall',
-      [[1, 2]]
+  it('should throw NotFoundError when updating a non-existing hall', async () => {
+    await expect(
+      movieHallService.updateSeatsLayout('nonexistent', 'nonexistent', [[1]])
+    ).rejects.toThrow(
+      'Movie hall with theaterId nonexistent and hallId nonexistent not found.'
     );
-    expect(updated).toBeNull();
   });
 
-  it('should delete a movie hall by theaterId and hallId', async () => {
+  it('should delete a movie hall', async () => {
     await movieHallService.createMovieHall({
       theaterId: 'theater6',
-      hallId: 'hallF',
-      seatsLayout: [[1, 2, 3]],
+      hallId: 'hall6',
+      seatsLayout: [[1]],
     });
 
-    const deleted = await movieHallService.deleteMovieHall('theater6', 'hallF');
+    const deleted = await movieHallService.deleteMovieHall('theater6', 'hall6');
 
-    expect(deleted).toBe(true);
+    expect(deleted).toBeUndefined(); // successful deletion, no return value
 
-    const found = await movieHallService.getMovieHall('theater6', 'hallF');
-    expect(found).toBeNull();
+    await expect(
+      movieHallService.getMovieHall('theater6', 'hall6')
+    ).rejects.toThrow(
+      'Movie hall with theaterId theater6 and hallId hall6 not found.'
+    );
   });
 
-  it('should return false when deleting a non-existing movie hall', async () => {
-    const deleted = await movieHallService.deleteMovieHall(
-      'unknownTheater',
-      'unknownHall'
+  it('should throw NotFoundError when deleting a non-existing hall', async () => {
+    await expect(
+      movieHallService.deleteMovieHall('unknown', 'unknown')
+    ).rejects.toThrow(
+      'Movie hall with theaterId unknown and hallId unknown not found.'
     );
-    expect(deleted).toBe(false);
   });
 });

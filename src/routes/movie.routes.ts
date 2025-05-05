@@ -1,227 +1,241 @@
 import { Router } from 'express';
 import {
-  handleCreateMovie,
-  handleGetMovieById,
-  handleGetAllMovies,
-  handleUpdateMovie,
-  handleDeleteMovie,
-  handleSearchMovies,
-} from '../controllers/movie.controller';
+  createMovieHall,
+  getMovieHall,
+  getAllMovieHalls,
+  updateSeatsLayout,
+  deleteMovieHall,
+} from '../controllers/movieHall.controller';
+
 import { authenticateJwt } from '../middlewares/auth.middleware';
 import { Permission } from '../middlewares/authorization.middleware';
-import validateCreateMovie from '../validators/movie.validator';
+import {
+  validateCreateMovieHall,
+  validateMovieHallParams,
+  validateUpdateSeatsLayout,
+} from '../validators/hall.validator';
 import handleValidationErrors from '../middlewares/handleValidationErrors.middleware';
 
 const router = Router();
 
 /**
  * @swagger
- * /movies:
+ * /movie-halls:
  *   post:
- *     summary: Create a new movie
+ *     summary: Create a new movie hall
  *     tags:
- *       - Movies
+ *       - MovieHalls
  *     security:
  *       - bearerAuth: []
  *     requestBody:
- *       description: Movie data
  *       required: true
  *       content:
  *         application/json:
  *           schema:
  *             type: object
+ *             required:
+ *               - theaterId
+ *               - hallId
+ *               - seatsLayout
  *             properties:
- *               title:
+ *               theaterId:
  *                 type: string
- *               description:
+ *                 pattern: '^[\\w\\- ]+$'
+ *                 description: Alphanumeric, dashes and spaces allowed
+ *               hallId:
  *                 type: string
- *               ageRating:
- *                 type: string
- *               genre:
- *                 type: string
- *               releaseDate:
- *                 type: string
- *                 format: date
- *               director:
- *                 type: string
- *               durationMinutes:
- *                 type: number
+ *                 pattern: '^[\\w\\- ]+$'
+ *                 description: Alphanumeric, dashes and spaces allowed
+ *               seatsLayout:
+ *                 type: array
+ *                 description: 2D array representing seat layout
+ *                 items:
+ *                   type: array
+ *                   items:
+ *                     oneOf:
+ *                       - type: string
+ *                       - type: integer
  *     responses:
  *       201:
- *         description: Movie successfully created
+ *         description: Movie hall created
+ *       400:
+ *         description: Validation error
+ *       409:
+ *         description: Theater or Hall already exists
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
  *       500:
- *         description: Failed to create movie
+ *         description: Internal server error
  */
 router.post(
   '/',
-  validateCreateMovie,
+  validateCreateMovieHall,
   handleValidationErrors,
   authenticateJwt,
   Permission.authorize('employé'),
-  handleCreateMovie
-);
-router.post(
-  '/',
-  validateCreateMovie,
-  handleValidationErrors,
-  authenticateJwt,
-  Permission.authorize('employé'),
-  handleCreateMovie
+  createMovieHall
 );
 
 /**
  * @swagger
- * /movies/search:
+ * /movie-halls/{theaterId}/{hallId}:
  *   get:
- *     summary: Search for movies
+ *     summary: Get a specific movie hall
  *     tags:
- *       - Movies
- *     parameters:
- *       - in: query
- *         name: title
- *         schema:
- *           type: string
- *         description: Title to search for
- *       - in: query
- *         name: genre
- *         schema:
- *           type: string
- *         description: Genre to search for
- *       - in: query
- *         name: ageRating
- *         schema:
- *           type: string
- *         description: Age rating to filter
- *     responses:
- *       200:
- *         description: Movies matching search criteria
- *       500:
- *         description: Failed to search movies
- */
-router.get('/search', handleSearchMovies); // <-- moved UP!
-
-/**
- * @swagger
- * /movies/{movieId}:
- *   get:
- *     summary: Get a movie by ID
- *     tags:
- *       - Movies
+ *       - MovieHalls
  *     parameters:
  *       - in: path
- *         name: movieId
+ *         name: theaterId
+ *         required: true
  *         schema:
  *           type: string
+ *         description: Theater ID
+ *       - in: path
+ *         name: hallId
  *         required: true
- *         description: The ID of the movie
+ *         schema:
+ *           type: string
+ *         description: Hall ID
  *     responses:
  *       200:
- *         description: Movie found
+ *         description: Movie hall found
+ *       400:
+ *         description: Validation error
  *       404:
- *         description: Movie not found
+ *         description: Movie hall not found
  *       500:
- *         description: Failed to get movie
+ *         description: Internal server error
  */
-router.get('/:movieId', handleGetMovieById);
+router.get(
+  '/:theaterId/:hallId',
+  validateMovieHallParams,
+  handleValidationErrors,
+  getMovieHall
+);
 
 /**
  * @swagger
- * /movies:
+ * /movie-halls:
  *   get:
- *     summary: Get all movies
+ *     summary: Get all movie halls
  *     tags:
- *       - Movies
+ *       - MovieHalls
  *     responses:
  *       200:
- *         description: List of movies retrieved
+ *         description: List of movie halls
  *       500:
- *         description: Failed to get movies
+ *         description: Internal server error
  */
-router.get('/', handleGetAllMovies);
+router.get('/', getAllMovieHalls);
 
 /**
  * @swagger
- * /movies/{movieId}:
+ * /movie-halls/{theaterId}/{hallId}:
  *   put:
- *     summary: Update a movie by ID
+ *     summary: Update seats layout of a movie hall
  *     tags:
- *       - Movies
+ *       - MovieHalls
  *     security:
  *       - bearerAuth: []
  *     parameters:
  *       - in: path
- *         name: movieId
+ *         name: theaterId
+ *         required: true
  *         schema:
  *           type: string
+ *         description: Theater ID
+ *       - in: path
+ *         name: hallId
  *         required: true
- *         description: The ID of the movie
+ *         schema:
+ *           type: string
+ *         description: Hall ID
  *     requestBody:
- *       description: Movie data to update
  *       required: true
  *       content:
  *         application/json:
  *           schema:
  *             type: object
+ *             required:
+ *               - seatsLayout
  *             properties:
- *               title:
- *                 type: string
- *               description:
- *                 type: string
- *               ageRating:
- *                 type: string
- *               genre:
- *                 type: string
- *               releaseDate:
- *                 type: string
- *                 format: date
- *               director:
- *                 type: string
- *               durationMinutes:
- *                 type: number
+ *               seatsLayout:
+ *                 type: array
+ *                 description: 2D array representing seat layout
+ *                 items:
+ *                   type: array
+ *                   items:
+ *                     oneOf:
+ *                       - type: string
+ *                       - type: integer
  *     responses:
  *       200:
- *         description: Movie successfully updated
+ *         description: Seats layout updated
+ *       400:
+ *         description: Validation error
  *       404:
- *         description: Movie not found
+ *         description: Movie hall not found
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
  *       500:
- *         description: Failed to update movie
+ *         description: Internal server error
  */
 router.put(
-  '/:movieId',
+  '/:theaterId/:hallId',
+  validateUpdateSeatsLayout,
+  handleValidationErrors,
   authenticateJwt,
   Permission.authorize('employé'),
-  handleUpdateMovie
+  updateSeatsLayout
 );
 
 /**
  * @swagger
- * /movies/{movieId}:
+ * /movie-halls/{theaterId}/{hallId}:
  *   delete:
- *     summary: Delete a movie by ID
+ *     summary: Delete a movie hall
  *     tags:
- *       - Movies
+ *       - MovieHalls
  *     security:
  *       - bearerAuth: []
  *     parameters:
  *       - in: path
- *         name: movieId
+ *         name: theaterId
+ *         required: true
  *         schema:
  *           type: string
+ *         description: Theater ID
+ *       - in: path
+ *         name: hallId
  *         required: true
- *         description: The ID of the movie
+ *         schema:
+ *           type: string
+ *         description: Hall ID
  *     responses:
  *       204:
- *         description: Movie successfully deleted
+ *         description: Movie hall successfully deleted
+ *       400:
+ *         description: Validation error
  *       404:
- *         description: Movie not found
+ *         description: Movie hall not found
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
  *       500:
- *         description: Failed to delete movie
+ *         description: Internal server error
  */
 router.delete(
-  '/:movieId',
+  '/:theaterId/:hallId',
+  validateMovieHallParams,
+  handleValidationErrors,
   authenticateJwt,
   Permission.authorize('employé'),
-  handleDeleteMovie
+  deleteMovieHall
 );
 
 export default router;

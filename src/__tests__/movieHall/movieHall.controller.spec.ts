@@ -1,199 +1,258 @@
-import { Request, Response } from 'express';
-import * as movieHallController from '../../controllers/movieHall.controller';
+import {
+  createMovieHall,
+  getMovieHall,
+  getAllMovieHalls,
+  updateSeatsLayout,
+  deleteMovieHall,
+} from '../../controllers/movieHall.controller';
+import { Request, Response, NextFunction } from 'express';
 import { MovieHallService } from '../../services/movieHall.service';
+import { NotFoundError } from '../../errors/NotFoundError';
 
-// Mock MovieHallService
+// Mock the service
 jest.mock('../../services/movieHall.service');
-const MockMovieHallService = MovieHallService as jest.MockedClass<
-  typeof MovieHallService
->;
 
-// Helpers
-const mockStatus = jest.fn().mockReturnThis();
-const mockJson = jest.fn();
-const mockSend = jest.fn();
-
-describe('MovieHall Controller', () => {
+describe('MovieHallController', () => {
   let req: Partial<Request>;
   let res: Partial<Response>;
+  let next: jest.Mock;
+  let jsonMock: jest.Mock;
+  let statusMock: jest.Mock;
+  let sendMock: jest.Mock;
+
+  const mockMovieHall = {
+    theaterId: 'theater123',
+    hallId: 'hallA',
+    seatsLayout: [
+      [1, 2, 3],
+      ['x', 4, 5],
+    ],
+  };
 
   beforeEach(() => {
-    req = {
-      params: {},
-      body: {},
-    };
-    res = {
-      status: mockStatus,
-      json: mockJson,
-      send: mockSend,
-    };
+    jsonMock = jest.fn();
+    sendMock = jest.fn();
+    statusMock = jest.fn(() => ({ json: jsonMock, send: sendMock }));
+    req = {};
+    res = { status: statusMock, json: jsonMock, send: sendMock };
+    next = jest.fn();
     jest.clearAllMocks();
   });
 
   describe('createMovieHall', () => {
-    it('should create a movie hall successfully', async () => {
+    it('should create a movie hall and return 201', async () => {
       (
-        MockMovieHallService.prototype.createMovieHall as jest.Mock
-      ).mockResolvedValueOnce({ id: 1 });
+        MovieHallService.prototype.createMovieHall as jest.Mock
+      ).mockResolvedValue(mockMovieHall);
 
-      await movieHallController.createMovieHall(
+      req.body = mockMovieHall;
+      await createMovieHall(
         req as Request,
-        res as Response
+        res as Response,
+        next as NextFunction
       );
 
-      expect(mockStatus).toHaveBeenCalledWith(201);
-      expect(mockJson).toHaveBeenCalled();
+      expect(MovieHallService.prototype.createMovieHall).toHaveBeenCalledWith(
+        mockMovieHall
+      );
+      expect(statusMock).toHaveBeenCalledWith(201);
+      expect(jsonMock).toHaveBeenCalledWith({
+        message: 'Movie hall successfully created',
+        data: mockMovieHall,
+      });
     });
 
-    it('should handle service error', async () => {
+    it('should call next with error on failure', async () => {
       (
-        MockMovieHallService.prototype.createMovieHall as jest.Mock
-      ).mockRejectedValueOnce(new Error());
+        MovieHallService.prototype.createMovieHall as jest.Mock
+      ).mockRejectedValue(new Error('Failed'));
 
-      await movieHallController.createMovieHall(
+      req.body = mockMovieHall;
+      await createMovieHall(
         req as Request,
-        res as Response
+        res as Response,
+        next as NextFunction
       );
 
-      expect(mockStatus).toHaveBeenCalledWith(500);
-      expect(mockJson).toHaveBeenCalled();
+      expect(next).toHaveBeenCalledWith(expect.any(Error));
     });
   });
 
   describe('getMovieHall', () => {
-    it('should return a movie hall', async () => {
-      req.params = { theaterId: 'theater1', hallId: 'hallA' };
-      (
-        MockMovieHallService.prototype.getMovieHall as jest.Mock
-      ).mockResolvedValueOnce({ id: 1 });
+    it('should return a movie hall and 200', async () => {
+      (MovieHallService.prototype.getMovieHall as jest.Mock).mockResolvedValue(
+        mockMovieHall
+      );
 
-      await movieHallController.getMovieHall(req as Request, res as Response);
+      req.params = { theaterId: 'theater123', hallId: 'hallA' };
+      await getMovieHall(req as Request, res as Response, next as NextFunction);
 
-      expect(mockStatus).toHaveBeenCalledWith(200);
-      expect(mockJson).toHaveBeenCalled();
+      expect(statusMock).toHaveBeenCalledWith(200);
+      expect(jsonMock).toHaveBeenCalledWith({
+        message: 'Movie hall found',
+        data: mockMovieHall,
+      });
     });
 
-    it('should return 404 if movie hall not found', async () => {
-      req.params = { theaterId: 'theater1', hallId: 'hallA' };
-      (
-        MockMovieHallService.prototype.getMovieHall as jest.Mock
-      ).mockResolvedValueOnce(null);
+    it('should call next with NotFoundError if hall not found', async () => {
+      (MovieHallService.prototype.getMovieHall as jest.Mock).mockRejectedValue(
+        new NotFoundError('Not found')
+      );
 
-      await movieHallController.getMovieHall(req as Request, res as Response);
+      req.params = { theaterId: 'unknown', hallId: 'unknown' };
+      await getMovieHall(req as Request, res as Response, next as NextFunction);
 
-      expect(mockStatus).toHaveBeenCalledWith(404);
-      expect(mockJson).toHaveBeenCalled();
+      expect(next).toHaveBeenCalledWith(expect.any(NotFoundError));
+    });
+
+    it('should call next with error on failure', async () => {
+      (MovieHallService.prototype.getMovieHall as jest.Mock).mockRejectedValue(
+        new Error('Failed')
+      );
+
+      req.params = { theaterId: 'theater123', hallId: 'hallA' };
+      await getMovieHall(req as Request, res as Response, next as NextFunction);
+
+      expect(next).toHaveBeenCalledWith(expect.any(Error));
     });
   });
 
   describe('getAllMovieHalls', () => {
     it('should return all movie halls', async () => {
       (
-        MockMovieHallService.prototype.getAllMovieHalls as jest.Mock
-      ).mockResolvedValueOnce([]);
+        MovieHallService.prototype.getAllMovieHalls as jest.Mock
+      ).mockResolvedValue([mockMovieHall]);
 
-      await movieHallController.getAllMovieHalls(
+      await getAllMovieHalls(
         req as Request,
-        res as Response
+        res as Response,
+        next as NextFunction
       );
 
-      expect(mockStatus).toHaveBeenCalledWith(200);
-      expect(mockJson).toHaveBeenCalled();
+      expect(statusMock).toHaveBeenCalledWith(200);
+      expect(jsonMock).toHaveBeenCalledWith({
+        message: 'List of movie halls retrieved successfully',
+        data: [mockMovieHall],
+      });
     });
 
-    it('should handle service error', async () => {
+    it('should call next with error on failure', async () => {
       (
-        MockMovieHallService.prototype.getAllMovieHalls as jest.Mock
-      ).mockRejectedValueOnce(new Error());
+        MovieHallService.prototype.getAllMovieHalls as jest.Mock
+      ).mockRejectedValue(new Error('Failed'));
 
-      await movieHallController.getAllMovieHalls(
+      await getAllMovieHalls(
         req as Request,
-        res as Response
+        res as Response,
+        next as NextFunction
       );
 
-      expect(mockStatus).toHaveBeenCalledWith(500);
-      expect(mockJson).toHaveBeenCalled();
+      expect(next).toHaveBeenCalledWith(expect.any(Error));
     });
   });
 
   describe('updateSeatsLayout', () => {
-    it('should update seats layout successfully', async () => {
-      req.params = { theaterId: 'theater1', hallId: 'hallA' };
-      req.body = { seatsLayout: [[1, 2, 3]] };
+    it('should update and return updated movie hall', async () => {
       (
-        MockMovieHallService.prototype.updateSeatsLayout as jest.Mock
-      ).mockResolvedValueOnce({ id: 1 });
+        MovieHallService.prototype.updateSeatsLayout as jest.Mock
+      ).mockResolvedValue(mockMovieHall);
 
-      await movieHallController.updateSeatsLayout(
+      req.params = { theaterId: 'theater123', hallId: 'hallA' };
+      req.body = { seatsLayout: [[1, 'x', 2]] };
+
+      await updateSeatsLayout(
         req as Request,
-        res as Response
+        res as Response,
+        next as NextFunction
       );
 
-      expect(mockStatus).toHaveBeenCalledWith(200);
-      expect(mockJson).toHaveBeenCalled();
+      expect(statusMock).toHaveBeenCalledWith(200);
+      expect(jsonMock).toHaveBeenCalledWith({
+        message: 'Seats layout successfully updated',
+        data: mockMovieHall,
+      });
     });
 
-    it('should return 404 if hall not found', async () => {
-      req.params = { theaterId: 'theater1', hallId: 'hallA' };
-      req.body = { seatsLayout: [[1, 2, 3]] };
+    it('should call next with NotFoundError if hall not found', async () => {
       (
-        MockMovieHallService.prototype.updateSeatsLayout as jest.Mock
-      ).mockResolvedValueOnce(null);
+        MovieHallService.prototype.updateSeatsLayout as jest.Mock
+      ).mockRejectedValue(new NotFoundError('Not found'));
 
-      await movieHallController.updateSeatsLayout(
+      req.params = { theaterId: 'unknown', hallId: 'unknown' };
+      req.body = { seatsLayout: [[1, 'x', 2]] };
+
+      await updateSeatsLayout(
         req as Request,
-        res as Response
+        res as Response,
+        next as NextFunction
       );
 
-      expect(mockStatus).toHaveBeenCalledWith(404);
-      expect(mockJson).toHaveBeenCalled();
+      expect(next).toHaveBeenCalledWith(expect.any(NotFoundError));
+    });
+
+    it('should call next with error on failure', async () => {
+      (
+        MovieHallService.prototype.updateSeatsLayout as jest.Mock
+      ).mockRejectedValue(new Error('Failed'));
+
+      req.params = { theaterId: 'theater123', hallId: 'hallA' };
+      req.body = { seatsLayout: [[1, 2, 3]] };
+
+      await updateSeatsLayout(
+        req as Request,
+        res as Response,
+        next as NextFunction
+      );
+
+      expect(next).toHaveBeenCalledWith(expect.any(Error));
     });
   });
 
   describe('deleteMovieHall', () => {
-    it('should delete movie hall successfully', async () => {
-      req.params = { theaterId: 'theater1', hallId: 'hallA' };
+    it('should delete a movie hall and return 204', async () => {
       (
-        MockMovieHallService.prototype.deleteMovieHall as jest.Mock
-      ).mockResolvedValueOnce(true);
+        MovieHallService.prototype.deleteMovieHall as jest.Mock
+      ).mockResolvedValue(undefined);
 
-      await movieHallController.deleteMovieHall(
+      req.params = { theaterId: 'theater123', hallId: 'hallA' };
+      await deleteMovieHall(
         req as Request,
-        res as Response
+        res as Response,
+        next as NextFunction
       );
 
-      expect(mockStatus).toHaveBeenCalledWith(204);
-      expect(mockSend).toHaveBeenCalled();
+      expect(statusMock).toHaveBeenCalledWith(204);
+      expect(sendMock).toHaveBeenCalled();
     });
 
-    it('should return 404 if hall not found', async () => {
-      req.params = { theaterId: 'theater1', hallId: 'hallA' };
+    it('should call next with NotFoundError if hall not found', async () => {
       (
-        MockMovieHallService.prototype.deleteMovieHall as jest.Mock
-      ).mockResolvedValueOnce(false);
+        MovieHallService.prototype.deleteMovieHall as jest.Mock
+      ).mockRejectedValue(new NotFoundError('Not found'));
 
-      await movieHallController.deleteMovieHall(
+      req.params = { theaterId: 'unknown', hallId: 'unknown' };
+      await deleteMovieHall(
         req as Request,
-        res as Response
+        res as Response,
+        next as NextFunction
       );
 
-      expect(mockStatus).toHaveBeenCalledWith(404);
-      expect(mockJson).toHaveBeenCalled();
+      expect(next).toHaveBeenCalledWith(expect.any(NotFoundError));
     });
 
-    it('should handle service error', async () => {
-      req.params = { theaterId: 'theater1', hallId: 'hallA' };
+    it('should call next with error on failure', async () => {
       (
-        MockMovieHallService.prototype.deleteMovieHall as jest.Mock
-      ).mockRejectedValueOnce(new Error());
+        MovieHallService.prototype.deleteMovieHall as jest.Mock
+      ).mockRejectedValue(new Error('Failed'));
 
-      await movieHallController.deleteMovieHall(
+      req.params = { theaterId: 'theater123', hallId: 'hallA' };
+      await deleteMovieHall(
         req as Request,
-        res as Response
+        res as Response,
+        next as NextFunction
       );
 
-      expect(mockStatus).toHaveBeenCalledWith(500);
-      expect(mockJson).toHaveBeenCalled();
+      expect(next).toHaveBeenCalledWith(expect.any(Error));
     });
   });
 });

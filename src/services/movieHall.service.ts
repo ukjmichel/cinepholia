@@ -1,4 +1,7 @@
 import { MovieHallModel, MovieHallAttributes } from '../models/movieHall.model';
+import { ConflictError } from '../errors/ConflictError';
+import { BadRequestError } from '../errors/BadRequestError';
+import { NotFoundError } from '../errors/NotFoundError';
 
 export class MovieHallService {
   /**
@@ -7,23 +10,44 @@ export class MovieHallService {
    * @returns Promise<MovieHallModel> - The created movie hall
    */
   async createMovieHall(data: MovieHallAttributes): Promise<MovieHallModel> {
-    const movieHall = await MovieHallModel.create(data);
-    return movieHall;
+    try {
+      const movieHall = await MovieHallModel.create(data);
+      return movieHall;
+    } catch (error: any) {
+      if (error.name === 'SequelizeUniqueConstraintError') {
+        throw new ConflictError(
+          'Movie hall with this theaterId and hallId already exists.'
+        );
+      }
+      if (error.name === 'SequelizeValidationError') {
+        throw new BadRequestError(
+          error.errors[0]?.message || 'Validation error.'
+        );
+      }
+      throw error;
+    }
   }
 
   /**
    * Retrieve a movie hall by theaterId and hallId
    * @param theaterId - Theater ID
    * @param hallId - Hall ID
-   * @returns Promise<MovieHallModel | null> - Found movie hall or null
+   * @returns Promise<MovieHallModel> - Found movie hall
    */
   async getMovieHall(
     theaterId: string,
     hallId: string
-  ): Promise<MovieHallModel | null> {
+  ): Promise<MovieHallModel> {
     const movieHall = await MovieHallModel.findOne({
       where: { theaterId, hallId },
     });
+
+    if (!movieHall) {
+      throw new NotFoundError(
+        `Movie hall with theaterId ${theaterId} and hallId ${hallId} not found.`
+      );
+    }
+
     return movieHall;
   }
 
@@ -32,8 +56,9 @@ export class MovieHallService {
    * @returns Promise<MovieHallModel[]> - List of movie halls
    */
   async getAllMovieHalls(): Promise<MovieHallModel[]> {
-    const movieHalls = await MovieHallModel.findAll();
-    return movieHalls;
+    return MovieHallModel.findAll({
+      order: [['createdAt', 'DESC']], // Newest first
+    });
   }
 
   /**
@@ -41,19 +66,21 @@ export class MovieHallService {
    * @param theaterId - Theater ID
    * @param hallId - Hall ID
    * @param seatsLayout - New seats layout
-   * @returns Promise<MovieHallModel | null> - Updated movie hall or null
+   * @returns Promise<MovieHallModel> - Updated movie hall
    */
   async updateSeatsLayout(
     theaterId: string,
     hallId: string,
     seatsLayout: (string | number)[][]
-  ): Promise<MovieHallModel | null> {
+  ): Promise<MovieHallModel> {
     const movieHall = await MovieHallModel.findOne({
       where: { theaterId, hallId },
     });
 
     if (!movieHall) {
-      return null;
+      throw new NotFoundError(
+        `Movie hall with theaterId ${theaterId} and hallId ${hallId} not found.`
+      );
     }
 
     movieHall.seatsLayout = seatsLayout;
@@ -65,12 +92,17 @@ export class MovieHallService {
    * Delete a movie hall by theaterId and hallId
    * @param theaterId - Theater ID
    * @param hallId - Hall ID
-   * @returns Promise<boolean> - True if deleted, false if not found
+   * @returns Promise<void> - Nothing if success, throws if not found
    */
-  async deleteMovieHall(theaterId: string, hallId: string): Promise<boolean> {
+  async deleteMovieHall(theaterId: string, hallId: string): Promise<void> {
     const deletedCount = await MovieHallModel.destroy({
       where: { theaterId, hallId },
     });
-    return deletedCount > 0;
+
+    if (deletedCount === 0) {
+      throw new NotFoundError(
+        `Movie hall with theaterId ${theaterId} and hallId ${hallId} not found.`
+      );
+    }
   }
 }
