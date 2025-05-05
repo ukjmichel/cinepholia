@@ -11,6 +11,7 @@ import screeningRouter from './screening.routes';
 import bookingRouter from './booking.routes';
 import seatBookingRouter from './seatBooking.routes';
 import emailRouter from './email.route';
+import { errorHandler } from '../middlewares/errorHandler';
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -49,6 +50,7 @@ app.use('/api/screening', screeningRouter);
 app.use('/api/bookings', bookingRouter);
 app.use('/api/seat-bookings', seatBookingRouter);
 app.use('/api/email', emailRouter);
+app.use(errorHandler);
 
 app.listen(port, () => {
   console.log(`Server is running on port ${port}`);

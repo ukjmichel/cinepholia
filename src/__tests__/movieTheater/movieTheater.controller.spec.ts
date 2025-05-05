@@ -1,18 +1,21 @@
 import {
-  createMovietheater,
-  getMovietheaterById,
+  createMovieTheater,
+  getMovieTheaterById,
   getAllMovieTheaters,
-  updateMovietheater,
-  deleteMovietheater,
+  updateMovieTheater,
+  deleteMovieTheater,
   movieTheaterService,
 } from '../../controllers/movieTheater.controller';
-import { Request, Response } from 'express';
+import { Request, Response, NextFunction } from 'express';
+import { NotFoundError } from '../../errors/NotFoundError';
 
-jest.mock('../../services/movieTheater.service'); // Mock the service
+// Mock the service
+jest.mock('../../services/movieTheater.service');
 
 describe('MovieTheaterController', () => {
   let req: Partial<Request>;
   let res: Partial<Response>;
+  let next: jest.Mock;
   let jsonMock: jest.Mock;
   let statusMock: jest.Mock;
   let sendMock: jest.Mock;
@@ -28,25 +31,26 @@ describe('MovieTheaterController', () => {
 
   beforeEach(() => {
     jsonMock = jest.fn();
-    statusMock = jest.fn(() => ({ json: jsonMock, send: sendMock }));
     sendMock = jest.fn();
+    statusMock = jest.fn(() => ({ json: jsonMock, send: sendMock }));
     req = {};
-    res = {
-      status: statusMock,
-      json: jsonMock,
-      send: sendMock,
-    };
+    res = { status: statusMock, json: jsonMock, send: sendMock };
+    next = jest.fn();
     jest.clearAllMocks();
   });
 
-  describe('createMovietheater', () => {
+  describe('createMovieTheater', () => {
     it('should create a movie theater and return 201', async () => {
       (movieTheaterService.createMovieTheater as jest.Mock).mockResolvedValue(
         mockMovieTheater
       );
-      req.body = mockMovieTheater;
 
-      await createMovietheater(req as Request, res as Response);
+      req.body = mockMovieTheater;
+      await createMovieTheater(
+        req as Request,
+        res as Response,
+        next as NextFunction
+      );
 
       expect(movieTheaterService.createMovieTheater).toHaveBeenCalledWith(
         mockMovieTheater
@@ -58,30 +62,35 @@ describe('MovieTheaterController', () => {
       });
     });
 
-    it('should return 500 on error', async () => {
+    it('should call next with error on failure', async () => {
       (movieTheaterService.createMovieTheater as jest.Mock).mockRejectedValue(
         new Error('Failed')
       );
 
       req.body = mockMovieTheater;
-      await createMovietheater(req as Request, res as Response);
+      await createMovieTheater(
+        req as Request,
+        res as Response,
+        next as NextFunction
+      );
 
-      expect(statusMock).toHaveBeenCalledWith(500);
+      expect(next).toHaveBeenCalledWith(expect.any(Error));
     });
   });
 
-  describe('getMovietheaterById', () => {
+  describe('getMovieTheaterById', () => {
     it('should return a movie theater and 200', async () => {
       (movieTheaterService.getMovieTheaterById as jest.Mock).mockResolvedValue(
         mockMovieTheater
       );
 
       req.params = { theaterId: 'theater123' };
-      await getMovietheaterById(req as Request, res as Response);
-
-      expect(movieTheaterService.getMovieTheaterById).toHaveBeenCalledWith(
-        'theater123'
+      await getMovieTheaterById(
+        req as Request,
+        res as Response,
+        next as NextFunction
       );
+
       expect(statusMock).toHaveBeenCalledWith(200);
       expect(jsonMock).toHaveBeenCalledWith({
         message: 'Movie theater found',
@@ -89,29 +98,34 @@ describe('MovieTheaterController', () => {
       });
     });
 
-    it('should return 404 if not found', async () => {
-      (movieTheaterService.getMovieTheaterById as jest.Mock).mockResolvedValue(
-        null
+    it('should call next with NotFoundError if movie theater not found', async () => {
+      (movieTheaterService.getMovieTheaterById as jest.Mock).mockRejectedValue(
+        new NotFoundError('Not found')
       );
 
       req.params = { theaterId: 'nonexistent' };
-      await getMovietheaterById(req as Request, res as Response);
+      await getMovieTheaterById(
+        req as Request,
+        res as Response,
+        next as NextFunction
+      );
 
-      expect(statusMock).toHaveBeenCalledWith(404);
-      expect(jsonMock).toHaveBeenCalledWith({
-        message: 'Movie theater not found',
-      });
+      expect(next).toHaveBeenCalledWith(expect.any(NotFoundError));
     });
 
-    it('should return 500 on error', async () => {
+    it('should call next with error on generic failure', async () => {
       (movieTheaterService.getMovieTheaterById as jest.Mock).mockRejectedValue(
         new Error('Failed')
       );
 
       req.params = { theaterId: 'theater123' };
-      await getMovietheaterById(req as Request, res as Response);
+      await getMovieTheaterById(
+        req as Request,
+        res as Response,
+        next as NextFunction
+      );
 
-      expect(statusMock).toHaveBeenCalledWith(500);
+      expect(next).toHaveBeenCalledWith(expect.any(Error));
     });
   });
 
@@ -121,9 +135,12 @@ describe('MovieTheaterController', () => {
         mockMovieTheater,
       ]);
 
-      await getAllMovieTheaters(req as Request, res as Response);
+      await getAllMovieTheaters(
+        req as Request,
+        res as Response,
+        next as NextFunction
+      );
 
-      expect(movieTheaterService.getAllMovieTheaters).toHaveBeenCalled();
       expect(statusMock).toHaveBeenCalledWith(200);
       expect(jsonMock).toHaveBeenCalledWith({
         message: 'Movie theaters list successfully retrieved',
@@ -131,32 +148,35 @@ describe('MovieTheaterController', () => {
       });
     });
 
-    it('should return 500 on error', async () => {
+    it('should call next with error on failure', async () => {
       (movieTheaterService.getAllMovieTheaters as jest.Mock).mockRejectedValue(
         new Error('Failed')
       );
 
-      await getAllMovieTheaters(req as Request, res as Response);
+      await getAllMovieTheaters(
+        req as Request,
+        res as Response,
+        next as NextFunction
+      );
 
-      expect(statusMock).toHaveBeenCalledWith(500);
+      expect(next).toHaveBeenCalledWith(expect.any(Error));
     });
   });
 
-  describe('updateMovietheater', () => {
-    it('should update a movie theater and return 200', async () => {
+  describe('updateMovieTheater', () => {
+    it('should update and return the movie theater and 200', async () => {
       (movieTheaterService.updateMovieTheater as jest.Mock).mockResolvedValue(
         mockMovieTheater
       );
 
       req.params = { theaterId: 'theater123' };
       req.body = { city: 'New City' };
-
-      await updateMovietheater(req as Request, res as Response);
-
-      expect(movieTheaterService.updateMovieTheater).toHaveBeenCalledWith(
-        'theater123',
-        { city: 'New City' }
+      await updateMovieTheater(
+        req as Request,
+        res as Response,
+        next as NextFunction
       );
+
       expect(statusMock).toHaveBeenCalledWith(200);
       expect(jsonMock).toHaveBeenCalledWith({
         message: 'Movie theater successfully updated',
@@ -164,75 +184,84 @@ describe('MovieTheaterController', () => {
       });
     });
 
-    it('should return 404 if movie theater not found', async () => {
-      (movieTheaterService.updateMovieTheater as jest.Mock).mockResolvedValue(
-        null
+    it('should call next with NotFoundError if movie theater not found', async () => {
+      (movieTheaterService.updateMovieTheater as jest.Mock).mockRejectedValue(
+        new NotFoundError('Not found')
       );
 
       req.params = { theaterId: 'nonexistent' };
       req.body = { city: 'New City' };
+      await updateMovieTheater(
+        req as Request,
+        res as Response,
+        next as NextFunction
+      );
 
-      await updateMovietheater(req as Request, res as Response);
-
-      expect(statusMock).toHaveBeenCalledWith(404);
-      expect(jsonMock).toHaveBeenCalledWith({
-        message: 'Movie theater not found',
-      });
+      expect(next).toHaveBeenCalledWith(expect.any(NotFoundError));
     });
 
-    it('should return 500 on error', async () => {
+    it('should call next with error on generic failure', async () => {
       (movieTheaterService.updateMovieTheater as jest.Mock).mockRejectedValue(
         new Error('Failed')
       );
 
       req.params = { theaterId: 'theater123' };
       req.body = { city: 'New City' };
+      await updateMovieTheater(
+        req as Request,
+        res as Response,
+        next as NextFunction
+      );
 
-      await updateMovietheater(req as Request, res as Response);
-
-      expect(statusMock).toHaveBeenCalledWith(500);
+      expect(next).toHaveBeenCalledWith(expect.any(Error));
     });
   });
 
-  describe('deleteMovietheater', () => {
+  describe('deleteMovieTheater', () => {
     it('should delete a movie theater and return 204', async () => {
       (movieTheaterService.deleteMovieTheater as jest.Mock).mockResolvedValue(
-        true
+        undefined
       );
 
       req.params = { theaterId: 'theater123' };
-      await deleteMovietheater(req as Request, res as Response);
-
-      expect(movieTheaterService.deleteMovieTheater).toHaveBeenCalledWith(
-        'theater123'
+      await deleteMovieTheater(
+        req as Request,
+        res as Response,
+        next as NextFunction
       );
+
       expect(statusMock).toHaveBeenCalledWith(204);
       expect(sendMock).toHaveBeenCalled();
     });
 
-    it('should return 404 if movie theater not found', async () => {
-      (movieTheaterService.deleteMovieTheater as jest.Mock).mockResolvedValue(
-        false
+    it('should call next with NotFoundError if movie theater not found', async () => {
+      (movieTheaterService.deleteMovieTheater as jest.Mock).mockRejectedValue(
+        new NotFoundError('Not found')
       );
 
       req.params = { theaterId: 'nonexistent' };
-      await deleteMovietheater(req as Request, res as Response);
+      await deleteMovieTheater(
+        req as Request,
+        res as Response,
+        next as NextFunction
+      );
 
-      expect(statusMock).toHaveBeenCalledWith(404);
-      expect(jsonMock).toHaveBeenCalledWith({
-        message: 'Movie theater not found',
-      });
+      expect(next).toHaveBeenCalledWith(expect.any(NotFoundError));
     });
 
-    it('should return 500 on error', async () => {
+    it('should call next with error on generic failure', async () => {
       (movieTheaterService.deleteMovieTheater as jest.Mock).mockRejectedValue(
         new Error('Failed')
       );
 
       req.params = { theaterId: 'theater123' };
-      await deleteMovietheater(req as Request, res as Response);
+      await deleteMovieTheater(
+        req as Request,
+        res as Response,
+        next as NextFunction
+      );
 
-      expect(statusMock).toHaveBeenCalledWith(500);
+      expect(next).toHaveBeenCalledWith(expect.any(Error));
     });
   });
 });

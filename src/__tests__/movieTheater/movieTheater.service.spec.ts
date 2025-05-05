@@ -1,5 +1,6 @@
 import { MovieTheaterService } from '../../services/movieTheater.service';
 import { MovieTheaterModel } from '../../models/movietheater.model';
+import { NotFoundError } from '../../errors/NotFoundError';
 
 // Mock the MovieTheaterModel
 jest.mock('../../models/movietheater.model', () => ({
@@ -49,23 +50,20 @@ describe('MovieTheaterService', () => {
         mockMovieTheater
       );
 
-      const result = await movieTheaterService.getMovieTheaterById(
-        'theater123'
-      );
+      const result =
+        await movieTheaterService.getMovieTheaterById('theater123');
 
       expect(MovieTheaterModel.findByPk).toHaveBeenCalledWith('theater123');
       expect(result).toEqual(mockMovieTheater);
     });
 
-    it('should return null if movie theater not found', async () => {
+    it('should throw NotFoundError if movie theater not found', async () => {
       (MovieTheaterModel.findByPk as jest.Mock).mockResolvedValue(null);
 
-      const result = await movieTheaterService.getMovieTheaterById(
-        'nonexistent'
-      );
-
+      await expect(
+        movieTheaterService.getMovieTheaterById('nonexistent')
+      ).rejects.toThrow(NotFoundError);
       expect(MovieTheaterModel.findByPk).toHaveBeenCalledWith('nonexistent');
-      expect(result).toBeNull();
     });
   });
 
@@ -99,42 +97,42 @@ describe('MovieTheaterService', () => {
       expect(result).toEqual(mockMovieTheater);
     });
 
-    it('should return null if movie theater not found', async () => {
+    it('should throw NotFoundError if movie theater not found', async () => {
       (MovieTheaterModel.findByPk as jest.Mock).mockResolvedValue(null);
 
-      const result = await movieTheaterService.updateMovieTheater(
-        'nonexistent',
-        { city: 'New City' }
-      );
+      await expect(
+        movieTheaterService.updateMovieTheater('nonexistent', {
+          city: 'New City',
+        })
+      ).rejects.toThrow(NotFoundError);
 
       expect(MovieTheaterModel.findByPk).toHaveBeenCalledWith('nonexistent');
-      expect(result).toBeNull();
     });
   });
 
   describe('deleteMovieTheater', () => {
-    it('should return true if deletion was successful', async () => {
+    it('should delete the movie theater successfully', async () => {
       (MovieTheaterModel.destroy as jest.Mock).mockResolvedValue(1);
 
-      const result = await movieTheaterService.deleteMovieTheater('theater123');
+      await expect(
+        movieTheaterService.deleteMovieTheater('theater123')
+      ).resolves.toBeUndefined();
 
       expect(MovieTheaterModel.destroy).toHaveBeenCalledWith({
         where: { theaterId: 'theater123' },
       });
-      expect(result).toBe(true);
     });
 
-    it('should return false if no movie theater was deleted', async () => {
+    it('should throw NotFoundError if no movie theater was deleted', async () => {
       (MovieTheaterModel.destroy as jest.Mock).mockResolvedValue(0);
 
-      const result = await movieTheaterService.deleteMovieTheater(
-        'nonexistent'
-      );
+      await expect(
+        movieTheaterService.deleteMovieTheater('nonexistent')
+      ).rejects.toThrow(NotFoundError);
 
       expect(MovieTheaterModel.destroy).toHaveBeenCalledWith({
         where: { theaterId: 'nonexistent' },
       });
-      expect(result).toBe(false);
     });
   });
 });

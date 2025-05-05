@@ -1,33 +1,41 @@
-// Mock controllers first
+// Mock controllers 
 jest.mock('../../controllers/movieTheater.controller', () => ({
-  createMovietheater: jest.fn((req, res) =>
+  createMovieTheater: jest.fn((req, res, next) =>
     res.status(201).json({ message: 'created' })
   ),
-  getMovietheaterById: jest.fn((req, res) =>
+  getMovieTheaterById: jest.fn((req, res, next) =>
     res.status(200).json({ message: 'found' })
   ),
-  getAllMovieTheaters: jest.fn((req, res) =>
+  getAllMovieTheaters: jest.fn((req, res, next) =>
     res.status(200).json({ message: 'list' })
   ),
-  updateMovietheater: jest.fn((req, res) =>
+  updateMovieTheater: jest.fn((req, res, next) =>
     res.status(200).json({ message: 'updated' })
   ),
-  deleteMovietheater: jest.fn((req, res) => res.status(204).send()),
+  deleteMovieTheater: jest.fn((req, res, next) => res.status(204).send()),
 }));
 
-// Import types
-import { Request, Response, NextFunction } from 'express';
-
-// Mock auth middlewares with correct typing
+// Mock auth middlewares
 jest.mock('../../middlewares/auth.middleware', () => ({
-  authenticateJwt: (req: Request, res: Response, next: NextFunction) => next(),
+  authenticateJwt: (req: any, res: any, next: any) => next(),
 }));
 
 jest.mock('../../middlewares/authorization.middleware', () => ({
   Permission: {
-    authorize: () => (req: Request, res: Response, next: NextFunction) =>
-      next(),
+    authorize: () => (req: any, res: any, next: any) => next(),
   },
+}));
+
+// Mock validators (optional: they are just arrays of checks)
+jest.mock('../../validators/movieTheater.validator', () => ({
+  createMovieTheaterValidator: [(req: any, res: any, next: any) => next()],
+  updateMovieTheaterValidator: [(req: any, res: any, next: any) => next()],
+}));
+
+// Mock handleValidationErrors
+jest.mock('../../middlewares/handleValidationErrors.middleware', () => ({
+  __esModule: true,
+  default: (req: any, res: any, next: any) => next(),
 }));
 
 // Import after mocks

@@ -1,16 +1,15 @@
-import { Request, Response } from 'express';
+import { Request, Response, NextFunction } from 'express';
 import { MovieTheaterService } from '../services/movieTheater.service';
 
 export const movieTheaterService = new MovieTheaterService();
 
 /**
  * Create a new movie theater.
- * @param req - Express request
- * @param res - Express response
  */
-export const createMovietheater = async (
+export const createMovieTheater = async (
   req: Request,
-  res: Response
+  res: Response,
+  next: NextFunction
 ): Promise<void> => {
   try {
     const movieTheater = await movieTheaterService.createMovieTheater(req.body);
@@ -19,46 +18,38 @@ export const createMovietheater = async (
       data: movieTheater,
     });
   } catch (error) {
-    res.status(500).json({ message: 'Failed to create movie theater', error });
+    next(error); // Let global error handler manage it
   }
 };
 
 /**
  * Get a movie theater by ID.
- * @param req - Express request
- * @param res - Express response
  */
-export const getMovietheaterById = async (
+export const getMovieTheaterById = async (
   req: Request,
-  res: Response
+  res: Response,
+  next: NextFunction
 ): Promise<void> => {
   try {
     const { theaterId } = req.params;
-    const movieTheater = await movieTheaterService.getMovieTheaterById(
-      theaterId
-    );
-
-    if (!movieTheater) {
-      res.status(404).json({ message: 'Movie theater not found' });
-      return;
-    }
-
-    res
-      .status(200)
-      .json({ message: 'Movie theater found', data: movieTheater });
+    const movieTheater =
+      await movieTheaterService.getMovieTheaterById(theaterId);
+    res.status(200).json({
+      message: 'Movie theater found',
+      data: movieTheater,
+    });
   } catch (error) {
-    res.status(500).json({ message: 'Failed to get movie theater', error });
+    next(error);
   }
 };
 
 /**
  * Get all movie theaters.
- * @param req - Express request
- * @param res - Express response
  */
 export const getAllMovieTheaters = async (
   req: Request,
-  res: Response
+  res: Response,
+  next: NextFunction
 ): Promise<void> => {
   try {
     const movieTheaters = await movieTheaterService.getAllMovieTheaters();
@@ -67,18 +58,17 @@ export const getAllMovieTheaters = async (
       data: movieTheaters,
     });
   } catch (error) {
-    res.status(500).json({ message: 'Failed to get movie theaters', error });
+    next(error);
   }
 };
 
 /**
  * Update a movie theater by ID.
- * @param req - Express request
- * @param res - Express response
  */
-export const updateMovietheater = async (
+export const updateMovieTheater = async (
   req: Request,
-  res: Response
+  res: Response,
+  next: NextFunction
 ): Promise<void> => {
   try {
     const { theaterId } = req.params;
@@ -86,43 +76,28 @@ export const updateMovietheater = async (
       theaterId,
       req.body
     );
-
-    if (!updatedMovieTheater) {
-      res.status(404).json({ message: 'Movie theater not found' });
-      return;
-    }
-
-    res
-      .status(200)
-      .json({
-        message: 'Movie theater successfully updated',
-        data: updatedMovieTheater,
-      });
+    res.status(200).json({
+      message: 'Movie theater successfully updated',
+      data: updatedMovieTheater,
+    });
   } catch (error) {
-    res.status(500).json({ message: 'Failed to update movie theater', error });
+    next(error);
   }
 };
 
 /**
  * Delete a movie theater by ID.
- * @param req - Express request
- * @param res - Express response
  */
-export const deleteMovietheater = async (
+export const deleteMovieTheater = async (
   req: Request,
-  res: Response
+  res: Response,
+  next: NextFunction
 ): Promise<void> => {
   try {
     const { theaterId } = req.params;
-    const deleted = await movieTheaterService.deleteMovieTheater(theaterId);
-
-    if (!deleted) {
-      res.status(404).json({ message: 'Movie theater not found' });
-      return;
-    }
-
+    await movieTheaterService.deleteMovieTheater(theaterId);
     res.status(204).send(); // No Content
   } catch (error) {
-    res.status(500).json({ message: 'Failed to delete movie theater', error });
+    next(error);
   }
 };

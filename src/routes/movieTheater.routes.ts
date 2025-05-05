@@ -1,13 +1,18 @@
 import { Router } from 'express';
 import {
-  createMovietheater,
-  getMovietheaterById,
+  createMovieTheater,
+  getMovieTheaterById,
   getAllMovieTheaters,
-  updateMovietheater,
-  deleteMovietheater,
+  updateMovieTheater,
+  deleteMovieTheater,
 } from '../controllers/movieTheater.controller';
 import { authenticateJwt } from '../middlewares/auth.middleware';
 import { Permission } from '../middlewares/authorization.middleware';
+import handleValidationErrors from '../middlewares/handleValidationErrors.middleware';
+import {
+  createMovieTheaterValidator,
+  updateMovieTheaterValidator,
+} from '../validators/movieTheater.validator';
 
 const router = Router();
 
@@ -49,14 +54,24 @@ const router = Router();
  *     responses:
  *       201:
  *         description: Movie theater successfully created
+ *       400:
+ *         description: Validation error
+ *       409:
+ *         description: Theater ID already exists
+ *       401:
+ *         description: Unauthorized (missing or invalid token)
+ *       403:
+ *         description: Forbidden (insufficient permissions)
  *       500:
- *         description: Failed to create movie theater
+ *         description: Internal server error
  */
 router.post(
   '/',
   authenticateJwt,
   Permission.authorize('employé'),
-  createMovietheater
+  createMovieTheaterValidator,
+  handleValidationErrors,
+  createMovieTheater
 );
 
 /**
@@ -79,9 +94,9 @@ router.post(
  *       404:
  *         description: Movie theater not found
  *       500:
- *         description: Failed to get movie theater
+ *         description: Internal server error
  */
-router.get('/:theaterId', getMovietheaterById);
+router.get('/:theaterId', getMovieTheaterById);
 
 /**
  * @swagger
@@ -94,7 +109,7 @@ router.get('/:theaterId', getMovietheaterById);
  *       200:
  *         description: List of movie theaters retrieved
  *       500:
- *         description: Failed to get movie theaters
+ *         description: Internal server error
  */
 router.get('/', getAllMovieTheaters);
 
@@ -134,16 +149,24 @@ router.get('/', getAllMovieTheaters);
  *     responses:
  *       200:
  *         description: Movie theater successfully updated
+ *       400:
+ *         description: Validation error
  *       404:
  *         description: Movie theater not found
+ *       401:
+ *         description: Unauthorized (missing or invalid token)
+ *       403:
+ *         description: Forbidden (insufficient permissions)
  *       500:
- *         description: Failed to update movie theater
+ *         description: Internal server error
  */
 router.put(
   '/:theaterId',
   authenticateJwt,
   Permission.authorize('employé'),
-  updateMovietheater
+  updateMovieTheaterValidator,
+  handleValidationErrors,
+  updateMovieTheater
 );
 
 /**
@@ -167,14 +190,18 @@ router.put(
  *         description: Movie theater successfully deleted
  *       404:
  *         description: Movie theater not found
+ *       401:
+ *         description: Unauthorized (missing or invalid token)
+ *       403:
+ *         description: Forbidden (insufficient permissions)
  *       500:
- *         description: Failed to delete movie theater
+ *         description: Internal server error
  */
 router.delete(
   '/:theaterId',
   authenticateJwt,
   Permission.authorize('employé'),
-  deleteMovietheater
+  deleteMovieTheater
 );
 
 export default router;
