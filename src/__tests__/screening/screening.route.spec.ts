@@ -76,7 +76,7 @@ describe('Screening Routes', () => {
         genre: 'Sci-Fi',
         releaseDate: new Date('2010-07-16'),
         director: 'Christopher Nolan',
-        durationMinutes: 148,
+        durationTime: "02:00:00",
       },
       {
         movieId: movieId2,
@@ -86,7 +86,7 @@ describe('Screening Routes', () => {
         genre: 'Action',
         releaseDate: new Date('2008-07-18'),
         director: 'Christopher Nolan',
-        durationMinutes: 152,
+        durationTime: "02:30:00",
       },
     ]);
 

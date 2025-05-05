@@ -39,7 +39,7 @@ describe('MovieService', () => {
       genre: 'Sci-Fi',
       releaseDate: new Date('2010-07-16'),
       director: 'Christopher Nolan',
-      durationMinutes: 148,
+      durationTime: '02:28:00', // updated
     };
 
     const movie = await movieService.createMovie(movieData);
@@ -59,7 +59,7 @@ describe('MovieService', () => {
       genre: 'Sci-Fi',
       releaseDate: new Date('2014-11-07'),
       director: 'Christopher Nolan',
-      durationMinutes: 169,
+      durationTime: '02:49:00', // updated
     });
 
     const foundMovie = await movieService.getMovieById('movie456');
@@ -84,7 +84,7 @@ describe('MovieService', () => {
         genre: 'Drama',
         releaseDate: new Date(),
         director: 'Director One',
-        durationMinutes: 120,
+        durationTime: '02:00:00', // updated
       },
       {
         movieId: 'movie2',
@@ -94,7 +94,7 @@ describe('MovieService', () => {
         genre: 'Horror',
         releaseDate: new Date(),
         director: 'Director Two',
-        durationMinutes: 100,
+        durationTime: '01:40:00', // updated
       },
     ]);
 
@@ -111,7 +111,7 @@ describe('MovieService', () => {
       genre: 'Adventure',
       releaseDate: new Date(),
       director: 'Old Director',
-      durationMinutes: 90,
+      durationTime: '01:30:00', // updated
     });
 
     const updatedMovie = await movieService.updateMovie('movieToUpdate', {
@@ -141,7 +141,7 @@ describe('MovieService', () => {
       genre: 'Drama',
       releaseDate: new Date(),
       director: 'Director Delete',
-      durationMinutes: 95,
+      durationTime: '01:35:00', // updated
     });
 
     await expect(
@@ -165,7 +165,7 @@ describe('MovieService', () => {
         genre: 'Adventure',
         releaseDate: new Date('2020-01-01'),
         director: 'John Doe',
-        durationMinutes: 120,
+        durationTime: '02:00:00', // updated
       },
       {
         movieId: 'movie2',
@@ -175,7 +175,7 @@ describe('MovieService', () => {
         genre: 'Sci-Fi',
         releaseDate: new Date('2021-01-01'),
         director: 'Jane Smith',
-        durationMinutes: 130,
+        durationTime: '02:10:00', // updated
       },
       {
         movieId: 'movie3',
@@ -185,7 +185,7 @@ describe('MovieService', () => {
         genre: 'Romance',
         releaseDate: new Date('2022-01-01'),
         director: 'John Doe',
-        durationMinutes: 110,
+        durationTime: '01:50:00', // updated
       },
     ]);
 

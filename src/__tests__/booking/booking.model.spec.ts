@@ -58,7 +58,7 @@ describe('BookingModel', () => {
       genre: 'Sci-Fi',
       releaseDate: new Date('2024-01-01'),
       director: 'Test Director',
-      durationMinutes: 120,
+      durationTime: "02:00:00",
     });
 
     const theater = await MovieTheaterModel.create({
@@ -86,7 +86,7 @@ describe('BookingModel', () => {
       theaterId: theater.theaterId,
       hallId: hall.hallId,
       startTime: new Date(),
-      durationTime: new Date('1970-01-01T02:00:00Z'),
+      durationTime: "02:00:00",
     });
 
     return { user, screening };

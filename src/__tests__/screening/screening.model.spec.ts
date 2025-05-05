@@ -40,7 +40,7 @@ describe('ScreeningModel', () => {
       genre: 'Sci-Fi',
       releaseDate: new Date('2010-07-16'),
       director: 'Christopher Nolan',
-      durationMinutes: 148,
+      durationTime: "02:30:00",
     });
 
     // 2. Create a MovieTheater

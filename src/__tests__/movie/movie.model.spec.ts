@@ -12,7 +12,7 @@ describe('🧪 MovieModel', () => {
       models: [MovieModel],
     });
 
-    await sequelize.sync({ force: true }); // Sync all models
+    await sequelize.sync({ force: true });
   });
 
   afterAll(async () => {
@@ -22,7 +22,7 @@ describe('🧪 MovieModel', () => {
   });
 
   beforeEach(async () => {
-    await MovieModel.destroy({ where: {}, truncate: true, cascade: true }); // Clean the table
+    await MovieModel.destroy({ where: {}, truncate: true, cascade: true });
   });
 
   it('should create a movie with valid attributes', async () => {
@@ -34,7 +34,7 @@ describe('🧪 MovieModel', () => {
       genre: 'Sci-Fi',
       releaseDate: new Date('2010-07-16'),
       director: 'Christopher Nolan',
-      durationMinutes: 148,
+      durationTime: '02:28:00', 
       posterUrl: 'https://example.com/poster.jpg',
     });
 
@@ -44,7 +44,7 @@ describe('🧪 MovieModel', () => {
     expect(movie.genre).toBe('Sci-Fi');
     expect(movie.ageRating).toBe('PG-13');
     expect(movie.director).toBe('Christopher Nolan');
-    expect(movie.durationMinutes).toBe(148);
+    expect(movie.durationTime).toBe('02:28:00'); 
     expect(movie.posterUrl).toBe('https://example.com/poster.jpg');
   });
 
@@ -57,8 +57,8 @@ describe('🧪 MovieModel', () => {
         genre: 'Drama',
         releaseDate: new Date(),
         director: 'Unknown',
-        durationMinutes: 120,
-      } as any) // forced as 'any' to allow missing fields
+        durationTime: '02:00:00', 
+      } as any)
     ).rejects.toThrow();
   });
 
@@ -71,7 +71,7 @@ describe('🧪 MovieModel', () => {
         genre: 'Action',
         releaseDate: new Date(),
         director: 'Unknown',
-        durationMinutes: 90,
+        durationTime: '01:30:00', 
       } as any)
     ).rejects.toThrow();
   });
@@ -85,7 +85,7 @@ describe('🧪 MovieModel', () => {
       genre: 'Adventure',
       releaseDate: new Date(),
       director: 'First Director',
-      durationMinutes: 100,
+      durationTime: '01:40:00', 
     });
 
     await expect(
@@ -97,8 +97,23 @@ describe('🧪 MovieModel', () => {
         genre: 'Comedy',
         releaseDate: new Date(),
         director: 'Second Director',
-        durationMinutes: 110,
+        durationTime: '01:50:00',
       })
     ).rejects.toThrow();
+  });
+
+  it('should fail if durationTime has invalid format', async () => {
+    await expect(
+      MovieModel.create({
+        movieId: 'invalidDuration',
+        title: 'Bad Duration',
+        description: 'Invalid duration format',
+        ageRating: 'PG-13',
+        genre: 'Thriller',
+        releaseDate: new Date(),
+        director: 'Bad Director',
+        durationTime: '90 minutes', // WRONG format
+      })
+    ).rejects.toThrow('durationTime must be a valid string in format HH:mm:ss');
   });
 });

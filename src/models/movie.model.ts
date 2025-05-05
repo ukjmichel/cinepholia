@@ -17,7 +17,7 @@ export interface MovieAttributes {
   genre: string;
   releaseDate: Date;
   director: string;
-  durationMinutes: number;
+  durationTime: string; // Updated: Duration stored as "HH:mm:ss"
   posterUrl?: string; // Optional field for movie poster URL
 }
 
@@ -32,7 +32,7 @@ export class MovieModel
   implements MovieAttributes
 {
   @PrimaryKey
-  @Default(DataType.UUIDV4) // Automatically generate a UUID when creating a movie
+  @Default(DataType.UUIDV4)
   @Column({
     type: DataType.UUID,
     allowNull: false,
@@ -44,47 +44,57 @@ export class MovieModel
     type: DataType.STRING,
     allowNull: false,
   })
-  public title!: string; // Title of the movie (example: "Inception")
+  public title!: string;
 
   @Column({
     type: DataType.TEXT,
     allowNull: false,
   })
-  public description!: string; // Full description or synopsis of the movie
+  public description!: string;
 
   @Column({
     type: DataType.STRING,
     allowNull: false,
   })
-  public ageRating!: string; // Age rating (example: "PG-13", "R", "G")
+  public ageRating!: string;
 
   @Column({
     type: DataType.STRING,
     allowNull: false,
   })
-  public genre!: string; // Movie genre (example: "Action", "Comedy")
+  public genre!: string;
 
   @Column({
     type: DataType.DATE,
     allowNull: false,
   })
-  public releaseDate!: Date; // Release date of the movie
+  public releaseDate!: Date;
 
   @Column({
     type: DataType.STRING,
     allowNull: false,
   })
-  public director!: string; // Name of the movie director (example: "Christopher Nolan")
+  public director!: string;
 
   @Column({
-    type: DataType.INTEGER,
+    type: DataType.TIME, // Optional: You can keep it as STRING, but TIME matches your intention
     allowNull: false,
+    validate: {
+      isCorrectFormat(value: string) {
+        const regex = /^([0-1]\d|2[0-3]):([0-5]\d):([0-5]\d)$/;
+        if (!regex.test(value)) {
+          throw new Error(
+            'durationTime must be a valid string in format HH:mm:ss'
+          );
+        }
+      },
+    },
   })
-  public durationMinutes!: number; // Duration of the movie in minutes (example: 120)
+  public durationTime!: string;
 
   @Column({
     type: DataType.STRING,
     allowNull: true,
   })
-  public posterUrl?: string; // Optional: URL to the movie's poster image
+  public posterUrl?: string;
 }

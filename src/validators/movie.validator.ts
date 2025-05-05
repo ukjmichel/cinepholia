@@ -24,8 +24,10 @@ export const validateCreateMovie = [
     .trim()
     .notEmpty()
     .withMessage('Age rating is required')
-    .matches(/^\d+\+?$/)
-    .withMessage('Age rating must be like "13+"')
+    .matches(/^(G|PG|PG-13|R|NC-17|U|12A|15|18|M|MA15\+|R18\+|\d{1,2}\+)$/)
+    .withMessage(
+      'Age rating must be like "G", "PG", "PG-13", "R", "NC-17", "U", "12A", "15", "18", "M", "MA15+", "R18+", or "13+" etc.'
+    )
     .isLength({ max: 10 })
     .withMessage('Age rating must be at most 10 characters'),
 
@@ -52,11 +54,11 @@ export const validateCreateMovie = [
     .isLength({ max: 255 })
     .withMessage('Director must be at most 255 characters'),
 
-  body('durationMinutes')
+  body('durationTime')
     .notEmpty()
-    .withMessage('Duration is required')
-    .isInt({ min: 1 })
-    .withMessage('Duration must be a positive integer'),
+    .withMessage('DurationTime is required')
+    .matches(/^([0-1]\d|2[0-3]):([0-5]\d):([0-5]\d)$/)
+    .withMessage('DurationTime must be in format "HH:mm:ss"'),
 
   body('posterUrl')
     .optional()
@@ -65,7 +67,7 @@ export const validateCreateMovie = [
 ];
 
 /**
- * Validator for updating a movie (all fields optional, but validated if present).
+ * Validator for updating a movie (all fields optional but validated if present).
  */
 export const validateUpdateMovie = [
   body('title')
@@ -85,8 +87,10 @@ export const validateUpdateMovie = [
   body('ageRating')
     .optional()
     .trim()
-    .matches(/^\d+\+?$/)
-    .withMessage('Age rating must be like "13+"')
+    .matches(/^(G|PG|PG-13|R|NC-17|U|12A|15|18|M|MA15\+|R18\+|\d{1,2}\+)$/)
+    .withMessage(
+      'Age rating must be like "G", "PG", "PG-13", "R", "NC-17", "U", "12A", "15", "18", "M", "MA15+", "R18+", or "13+" etc.'
+    )
     .isLength({ max: 10 })
     .withMessage('Age rating must be at most 10 characters'),
 
@@ -110,10 +114,10 @@ export const validateUpdateMovie = [
     .isLength({ max: 255 })
     .withMessage('Director must be at most 255 characters'),
 
-  body('durationMinutes')
+  body('durationTime')
     .optional()
-    .isInt({ min: 1 })
-    .withMessage('Duration must be a positive integer'),
+    .matches(/^([0-1]\d|2[0-3]):([0-5]\d):([0-5]\d)$/)
+    .withMessage('DurationTime must be in format "HH:mm:ss"'),
 
   body('posterUrl')
     .optional()
@@ -128,12 +132,12 @@ export const validateMovieIdParam = [
   param('movieId')
     .notEmpty()
     .withMessage('movieId param is required')
-    .isString()
-    .withMessage('movieId must be a string'),
+    .isUUID()
+    .withMessage('movieId must be a valid UUID'),
 ];
 
 /**
- * Validator for search queries (optional but if provided, validated).
+ * Validator for search queries (optional but validated if provided).
  */
 export const validateSearchQuery = [
   query('title')
@@ -157,6 +161,8 @@ export const validateSearchQuery = [
   query('ageRating')
     .optional()
     .trim()
-    .matches(/^\d+\+?$/)
-    .withMessage('Age rating must be like "13+"'),
+    .matches(/^(G|PG|PG-13|R|NC-17|U|12A|15|18|M|MA15\+|R18\+|\d{1,2}\+)$/)
+    .withMessage(
+      'Age rating must be like "G", "PG", "PG-13", "R", "NC-17", "U", "12A", "15", "18", "M", "MA15+", "R18+", or "13+" etc.'
+    ),
 ];

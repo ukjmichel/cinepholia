@@ -1,4 +1,3 @@
-// src/__tests__/movie/movie.controller.spec.ts
 import { Request, Response, NextFunction } from 'express';
 import * as movieController from '../../controllers/movie.controller';
 import { MovieService } from '../../services/movie.service';
@@ -7,15 +6,13 @@ import { MovieService } from '../../services/movie.service';
 jest.mock('../../services/movie.service');
 const MockMovieService = MovieService as jest.MockedClass<typeof MovieService>;
 
-
 describe('Movie Controller', () => {
-  // Helpers
+  let req: Partial<Request<any, any, any, any>>;
+  let res: Partial<Response>;
   let mockStatus: jest.Mock;
   let mockJson: jest.Mock;
   let mockSend: jest.Mock;
-  let mockNext: jest.Mock; // <<<<<< ADDED
-  let req: Partial<Request>;
-  let res: Partial<Response>;
+  let mockNext: jest.Mock<NextFunction>;
 
   beforeEach(() => {
     req = {
@@ -26,14 +23,13 @@ describe('Movie Controller', () => {
     mockStatus = jest.fn().mockReturnThis();
     mockJson = jest.fn();
     mockSend = jest.fn();
-    mockNext = jest.fn(); // <<<<<< ADD THIS
+    mockNext = jest.fn();
     res = {
       status: mockStatus,
       json: mockJson,
       send: mockSend,
     };
     jest.clearAllMocks();
-    mockNext.mockClear(); // <<<<<< Add this
   });
 
   const validMovie = {
@@ -44,7 +40,7 @@ describe('Movie Controller', () => {
     genre: 'Sci-Fi',
     releaseDate: new Date('2010-07-16'),
     director: 'Christopher Nolan',
-    durationMinutes: 148,
+    durationTime: '02:28:00', // corrected field
   };
 
   describe('handleCreateMovie', () => {
@@ -52,6 +48,8 @@ describe('Movie Controller', () => {
       (
         MockMovieService.prototype.createMovie as jest.Mock
       ).mockResolvedValueOnce(validMovie);
+
+      req.body = validMovie;
 
       await movieController.handleCreateMovie(
         req as Request,
@@ -82,14 +80,19 @@ describe('Movie Controller', () => {
   });
 
   describe('handleGetMovieById', () => {
+    beforeEach(() => {
+      req = {
+        params: { movieId: 'uuid-movie-123' },
+      };
+    });
+
     it('should return movie if found', async () => {
-      req.params = { movieId: 'uuid-movie-123' };
       (
         MockMovieService.prototype.getMovieById as jest.Mock
       ).mockResolvedValueOnce(validMovie);
 
       await movieController.handleGetMovieById(
-        req as Request,
+        req as Request<{ movieId: string }>,
         res as Response,
         mockNext as NextFunction
       );
@@ -101,29 +104,13 @@ describe('Movie Controller', () => {
       });
     });
 
-    it('should return 404 if movie not found', async () => {
-      req.params = { movieId: 'uuid-movie-123' };
-      (
-        MockMovieService.prototype.getMovieById as jest.Mock
-      ).mockResolvedValueOnce(null);
-
-      await movieController.handleGetMovieById(
-        req as Request,
-        res as Response,
-        mockNext as NextFunction
-      );
-
-      expect(mockStatus).toHaveBeenCalledWith(404);
-      expect(mockJson).toHaveBeenCalledWith({ message: 'Movie not found' });
-    });
-
     it('should call next(error) on failure', async () => {
       (
         MockMovieService.prototype.getMovieById as jest.Mock
       ).mockRejectedValueOnce(new Error('Error'));
 
       await movieController.handleGetMovieById(
-        req as Request,
+        req as Request<{ movieId: string }>,
         res as Response,
         mockNext as NextFunction
       );
@@ -167,15 +154,22 @@ describe('Movie Controller', () => {
   });
 
   describe('handleUpdateMovie', () => {
+    beforeEach(() => {
+      req = {
+        params: { movieId: 'uuid-movie-123' },
+        body: { title: 'Updated Title' },
+      };
+    });
+
     it('should update movie successfully', async () => {
-      req.params = { movieId: 'uuid-movie-123' };
-      req.body = { title: 'Updated Title' };
+      const updatedMovie = { ...validMovie, title: 'Updated Title' };
+
       (
         MockMovieService.prototype.updateMovie as jest.Mock
-      ).mockResolvedValueOnce({ ...validMovie, title: 'Updated Title' });
+      ).mockResolvedValueOnce(updatedMovie);
 
       await movieController.handleUpdateMovie(
-        req as Request,
+        req as Request<{ movieId: string }, any, Partial<typeof validMovie>>,
         res as Response,
         mockNext as NextFunction
       );
@@ -183,24 +177,8 @@ describe('Movie Controller', () => {
       expect(mockStatus).toHaveBeenCalledWith(200);
       expect(mockJson).toHaveBeenCalledWith({
         message: 'Movie successfully updated',
-        data: { ...validMovie, title: 'Updated Title' },
+        data: updatedMovie,
       });
-    });
-
-    it('should return 404 if movie not found', async () => {
-      req.params = { movieId: 'uuid-movie-123' };
-      (
-        MockMovieService.prototype.updateMovie as jest.Mock
-      ).mockResolvedValueOnce(null);
-
-      await movieController.handleUpdateMovie(
-        req as Request,
-        res as Response,
-        mockNext as NextFunction
-      );
-
-      expect(mockStatus).toHaveBeenCalledWith(404);
-      expect(mockJson).toHaveBeenCalledWith({ message: 'Movie not found' });
     });
 
     it('should call next(error) on failure', async () => {
@@ -209,7 +187,7 @@ describe('Movie Controller', () => {
       ).mockRejectedValueOnce(new Error('Error'));
 
       await movieController.handleUpdateMovie(
-        req as Request,
+        req as Request<{ movieId: string }, any, Partial<typeof validMovie>>,
         res as Response,
         mockNext as NextFunction
       );
@@ -219,14 +197,19 @@ describe('Movie Controller', () => {
   });
 
   describe('handleDeleteMovie', () => {
+    beforeEach(() => {
+      req = {
+        params: { movieId: 'uuid-movie-123' },
+      };
+    });
+
     it('should delete movie successfully', async () => {
-      req.params = { movieId: 'uuid-movie-123' };
       (
         MockMovieService.prototype.deleteMovie as jest.Mock
-      ).mockResolvedValueOnce(true);
+      ).mockResolvedValueOnce(undefined);
 
       await movieController.handleDeleteMovie(
-        req as Request,
+        req as Request<{ movieId: string }>,
         res as Response,
         mockNext as NextFunction
       );
@@ -235,28 +218,13 @@ describe('Movie Controller', () => {
       expect(mockSend).toHaveBeenCalled();
     });
 
-    it('should call next(error) if movie not found', async () => {
-      req.params = { movieId: 'uuid-movie-123' };
-      (
-        MockMovieService.prototype.deleteMovie as jest.Mock
-      ).mockRejectedValueOnce(new Error('Not found'));
-
-      await movieController.handleDeleteMovie(
-        req as Request,
-        res as Response,
-        mockNext as NextFunction
-      );
-
-      expect(mockNext).toHaveBeenCalled();
-    });
-
     it('should call next(error) on failure', async () => {
       (
         MockMovieService.prototype.deleteMovie as jest.Mock
       ).mockRejectedValueOnce(new Error('Error'));
 
       await movieController.handleDeleteMovie(
-        req as Request,
+        req as Request<{ movieId: string }>,
         res as Response,
         mockNext as NextFunction
       );
@@ -273,7 +241,7 @@ describe('Movie Controller', () => {
       ).mockResolvedValueOnce([validMovie]);
 
       await movieController.handleSearchMovies(
-        req as Request,
+        req as Request<any, any, any, { title: string }>,
         res as Response,
         mockNext as NextFunction
       );

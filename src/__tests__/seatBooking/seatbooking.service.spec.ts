@@ -59,7 +59,7 @@ describe('SeatBookingService', () => {
       genre: 'Sci-Fi',
       releaseDate: new Date('2014-11-07'), // 🔥 Correct: releaseDate (was date)
       director: 'Christopher Nolan', // 🔥 Add mandatory field
-      durationMinutes: 169, // 🔥 Add mandatory field
+      durationTime: "02:30:00", // 🔥 Add mandatory field
     });
 
     const theater = await MovieTheaterModel.create({
@@ -83,7 +83,7 @@ describe('SeatBookingService', () => {
       theaterId: theater.theaterId,
       hallId: hall.hallId,
       startTime: new Date(),
-      durationTime: new Date('1970-01-01T02:00:00Z'),
+      durationTime: "02:30:00",
     });
 
     screeningId = screening.screeningId;

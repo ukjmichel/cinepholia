@@ -46,7 +46,7 @@ describe('ScreeningService', () => {
       genre: 'Sci-Fi',
       releaseDate: new Date('2010-07-16'),
       director: 'Christopher Nolan',
-      durationMinutes: 148,
+      durationTime: "02:00:00",
     });
 
     await MovieTheaterModel.create({

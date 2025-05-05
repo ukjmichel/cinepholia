@@ -66,7 +66,7 @@ describe('BookingService', () => {
       genre: 'Sci-Fi',
       releaseDate: new Date(), // 🛠️ corrected: date -> releaseDate
       director: 'Christopher Nolan', // 🛠️ added required field: director
-      durationMinutes: 120, // 🛠️ added required field: durationMinutes
+      durationTime: "02:30:00", // 🛠️ added required field: durationMinutes
     });
 
     const theater = await MovieTheaterModel.create({
@@ -94,7 +94,7 @@ describe('BookingService', () => {
       theaterId: theater.theaterId,
       hallId: hall.hallId,
       startTime: new Date(),
-      durationTime: new Date(),
+      durationTime: "02:00:00",
     });
 
     return { user, screening };

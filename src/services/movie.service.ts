@@ -1,7 +1,7 @@
 import { Op } from 'sequelize';
 import { MovieModel, MovieAttributes } from '../models/movie.model';
 import { NotFoundError } from '../errors/NotFoundError';
-import { ConflictError } from '../errors/ConflictError'; // <-- add this for duplicate errors
+import { ConflictError } from '../errors/ConflictError'; // for duplicate errors
 
 export class MovieService {
   /**
@@ -21,6 +21,9 @@ export class MovieService {
         `Movie with title "${data.title}" and release date "${data.releaseDate.toISOString().split('T')[0]}" already exists.`
       );
     }
+
+    // Validate durationTime format manually if needed
+    this.validateDurationTime(data.durationTime);
 
     const movie = await MovieModel.create(data);
     return movie;
@@ -56,6 +59,11 @@ export class MovieService {
     if (!movie) {
       throw new NotFoundError(`Movie with ID ${movieId} not found.`);
     }
+
+    if (updateData.durationTime) {
+      this.validateDurationTime(updateData.durationTime);
+    }
+
     await movie.update(updateData);
     return movie;
   }
@@ -96,5 +104,15 @@ export class MovieService {
 
     const movies = await MovieModel.findAll({ where: whereClause });
     return movies;
+  }
+
+  /**
+   * Helper: validate durationTime format (HH:mm:ss).
+   */
+  private validateDurationTime(durationTime: string): void {
+    const regex = /^([0-1]\d|2[0-3]):([0-5]\d):([0-5]\d)$/;
+    if (!regex.test(durationTime)) {
+      throw new Error('durationTime must be a valid string in format HH:mm:ss');
+    }
   }
 }

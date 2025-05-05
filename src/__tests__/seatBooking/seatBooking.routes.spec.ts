@@ -82,7 +82,7 @@ beforeEach(async () => {
     genre: 'Sci-Fi',
     releaseDate: new Date('2014-11-07'), // 🔥 Correct: releaseDate (was date)
     director: 'Christopher Nolan', // 🔥 Add mandatory field
-    durationMinutes: 169, // 🔥 Add mandatory field
+    durationTime: "02:20:23", // 🔥 Add mandatory field
   });
 
   const theater = await MovieTheaterModel.create({
@@ -109,7 +109,7 @@ beforeEach(async () => {
     theaterId: theater.theaterId,
     hallId: hall.hallId,
     startTime: new Date('2025-01-01T18:00:00Z'),
-    durationTime: new Date('1970-01-01T02:30:00Z'),
+    durationTime: "02:20:20",
   });
 
   testScreeningId = screening.screeningId;

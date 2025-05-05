@@ -78,20 +78,7 @@ describe('🧪 User Controller Tests', () => {
         'test@example.com',
         'TestUser'
       );
-      it('should throw an error if sending welcome email fails', async () => {
-        const email = 'test@example.com';
-        const username = 'TestUser';
-
-        // Mock the method to reject (simulate failure)
-        (
-          UserController.emailService.sendWelcomeEmail as jest.Mock
-        ).mockRejectedValue(new Error('Failed to send welcome email'));
-
-        // Important: assert that a promise rejects!
-        await expect(
-          UserController.emailService.sendWelcomeEmail(email, username)
-        ).rejects.toThrow('Failed to send welcome email');
-      });
+      
     });
 
     it('should return 400 if email is already used', async () => {

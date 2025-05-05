@@ -12,7 +12,7 @@ jest.mock('../../middlewares/authorization.middleware', () => ({
   },
 }));
 
-// Mock controllers (you already had this style)
+// Mock controllers
 jest.mock('../../controllers/movie.controller', () => ({
   handleCreateMovie: jest.fn((req, res) =>
     res.status(201).json({ message: 'created' })
@@ -45,11 +45,11 @@ describe('Movie Routes', () => {
     const res = await request(app).post('/movies').send({
       title: 'Example',
       description: 'Example description',
-      ageRating: '13+',
+      ageRating: 'PG-13', // valid new rating
       genre: 'Action',
       releaseDate: '2024-01-01',
       director: 'John Doe',
-      durationMinutes: 120,
+      durationTime: '02:00:00', // <-- Correct field now
     });
 
     expect(res.status).toBe(201);
@@ -57,7 +57,9 @@ describe('Movie Routes', () => {
   });
 
   it('should get movie by ID', async () => {
-    const res = await request(app).get('/movies/movie123');
+    const res = await request(app).get(
+      '/movies/d290f1ee-6c54-4b01-90e6-d701748f0851'
+    );
     expect(res.status).toBe(200);
     expect(res.body.message).toBe('found');
   });
@@ -70,14 +72,16 @@ describe('Movie Routes', () => {
 
   it('should update a movie', async () => {
     const res = await request(app)
-      .put('/movies/movie123')
+      .put('/movies/d290f1ee-6c54-4b01-90e6-d701748f0851')
       .send({ title: 'Updated Title' });
     expect(res.status).toBe(200);
     expect(res.body.message).toBe('updated');
   });
 
   it('should delete a movie', async () => {
-    const res = await request(app).delete('/movies/movie123');
+    const res = await request(app).delete(
+      '/movies/d290f1ee-6c54-4b01-90e6-d701748f0851'
+    );
     expect(res.status).toBe(204);
   });
 

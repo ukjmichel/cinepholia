@@ -1,5 +1,6 @@
 import { NextFunction, Request, Response } from 'express';
 import { MovieService } from '../services/movie.service';
+import { MovieAttributes } from '../models/movie.model'; // typing MovieAttributes
 
 export const movieService = new MovieService();
 
@@ -7,12 +8,14 @@ export const movieService = new MovieService();
  * Create a new movie.
  */
 export const handleCreateMovie = async (
-  req: Request,
+  req: Request<{}, {}, MovieAttributes>,
   res: Response,
   next: NextFunction
 ): Promise<void> => {
   try {
-    const movie = await movieService.createMovie(req.body);
+    const movieData = req.body;
+    const movie = await movieService.createMovie(movieData);
+
     res.status(201).json({
       message: 'Movie successfully created',
       data: movie,
@@ -26,18 +29,13 @@ export const handleCreateMovie = async (
  * Get a movie by ID.
  */
 export const handleGetMovieById = async (
-  req: Request,
+  req: Request<{ movieId: string }>,
   res: Response,
   next: NextFunction
 ): Promise<void> => {
   try {
     const { movieId } = req.params;
     const movie = await movieService.getMovieById(movieId);
-
-    if (!movie) {
-      res.status(404).json({ message: 'Movie not found' });
-      return;
-    }
 
     res.status(200).json({
       message: 'Movie found',
@@ -58,6 +56,7 @@ export const handleGetAllMovies = async (
 ): Promise<void> => {
   try {
     const movies = await movieService.getAllMovies();
+
     res.status(200).json({
       message: 'Movies list successfully retrieved',
       data: movies,
@@ -71,18 +70,15 @@ export const handleGetAllMovies = async (
  * Update a movie by ID.
  */
 export const handleUpdateMovie = async (
-  req: Request,
+  req: Request<{ movieId: string }, {}, Partial<MovieAttributes>>,
   res: Response,
   next: NextFunction
 ): Promise<void> => {
   try {
     const { movieId } = req.params;
-    const updatedMovie = await movieService.updateMovie(movieId, req.body);
+    const updateData = req.body;
 
-    if (!updatedMovie) {
-      res.status(404).json({ message: 'Movie not found' });
-      return;
-    }
+    const updatedMovie = await movieService.updateMovie(movieId, updateData);
 
     res.status(200).json({
       message: 'Movie successfully updated',
@@ -97,31 +93,42 @@ export const handleUpdateMovie = async (
  * Delete a movie by ID.
  */
 export const handleDeleteMovie = async (
-  req: Request,
+  req: Request<{ movieId: string }>,
   res: Response,
   next: NextFunction
 ): Promise<void> => {
   try {
     const { movieId } = req.params;
-    await movieService.deleteMovie(movieId); // will throw NotFoundError if not found
+    await movieService.deleteMovie(movieId);
 
-    res.status(204).send(); // No content
+    res.status(204).send(); // No Content
   } catch (error) {
     next(error);
   }
 };
 
 /**
- * Search movies by title, genre, or director.
+ * Search movies by filters.
  */
 export const handleSearchMovies = async (
-  req: Request,
+  req: Request<
+    {},
+    {},
+    {},
+    { title?: string; genre?: string; director?: string; ageRating?: string }
+  >,
   res: Response,
   next: NextFunction
 ): Promise<void> => {
   try {
     const { title, genre, director, ageRating } = req.query;
-    const searchCriteria: any = {};
+
+    const searchCriteria: {
+      title?: string;
+      genre?: string;
+      director?: string;
+      ageRating?: string;
+    } = {};
 
     if (title) searchCriteria.title = title;
     if (genre) searchCriteria.genre = genre;
