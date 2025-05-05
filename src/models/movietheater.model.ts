@@ -6,7 +6,7 @@ import {
   Table,
 } from 'sequelize-typescript';
 
-interface MovieTheaterAttributes {
+export interface MovieTheaterAttributes {
   theaterId: string;
   address: string;
   postalCode: string;
@@ -16,7 +16,7 @@ interface MovieTheaterAttributes {
 }
 
 @Table({ tableName: 'movie_theater', timestamps: true })
-class MovieTheaterModel
+export class MovieTheaterModel
   extends Model<MovieTheaterAttributes>
   implements MovieTheaterAttributes
 {
@@ -66,4 +66,4 @@ class MovieTheaterModel
   public readonly updatedAt!: Date;
 }
 
-export { MovieTheaterModel, MovieTheaterAttributes };
+

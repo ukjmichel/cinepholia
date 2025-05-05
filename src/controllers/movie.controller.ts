@@ -1,16 +1,15 @@
-import { Request, Response } from 'express';
+import { NextFunction, Request, Response } from 'express';
 import { MovieService } from '../services/movie.service';
 
 export const movieService = new MovieService();
 
 /**
  * Create a new movie.
- * @param req Express request
- * @param res Express response
  */
 export const handleCreateMovie = async (
   req: Request,
-  res: Response
+  res: Response,
+  next: NextFunction
 ): Promise<void> => {
   try {
     const movie = await movieService.createMovie(req.body);
@@ -19,18 +18,17 @@ export const handleCreateMovie = async (
       data: movie,
     });
   } catch (error) {
-    res.status(500).json({ message: 'Failed to create movie', error });
+    next(error);
   }
 };
 
 /**
  * Get a movie by ID.
- * @param req Express request
- * @param res Express response
  */
 export const handleGetMovieById = async (
   req: Request,
-  res: Response
+  res: Response,
+  next: NextFunction
 ): Promise<void> => {
   try {
     const { movieId } = req.params;
@@ -46,18 +44,17 @@ export const handleGetMovieById = async (
       data: movie,
     });
   } catch (error) {
-    res.status(500).json({ message: 'Failed to get movie', error });
+    next(error);
   }
 };
 
 /**
  * Get all movies.
- * @param req Express request
- * @param res Express response
  */
 export const handleGetAllMovies = async (
   _req: Request,
-  res: Response
+  res: Response,
+  next: NextFunction
 ): Promise<void> => {
   try {
     const movies = await movieService.getAllMovies();
@@ -66,18 +63,17 @@ export const handleGetAllMovies = async (
       data: movies,
     });
   } catch (error) {
-    res.status(500).json({ message: 'Failed to get movies', error });
+    next(error);
   }
 };
 
 /**
  * Update a movie by ID.
- * @param req Express request
- * @param res Express response
  */
 export const handleUpdateMovie = async (
   req: Request,
-  res: Response
+  res: Response,
+  next: NextFunction
 ): Promise<void> => {
   try {
     const { movieId } = req.params;
@@ -93,42 +89,35 @@ export const handleUpdateMovie = async (
       data: updatedMovie,
     });
   } catch (error) {
-    res.status(500).json({ message: 'Failed to update movie', error });
+    next(error);
   }
 };
 
 /**
  * Delete a movie by ID.
- * @param req Express request
- * @param res Express response
  */
 export const handleDeleteMovie = async (
   req: Request,
-  res: Response
+  res: Response,
+  next: NextFunction
 ): Promise<void> => {
   try {
     const { movieId } = req.params;
-    const deleted = await movieService.deleteMovie(movieId);
-
-    if (!deleted) {
-      res.status(404).json({ message: 'Movie not found' });
-      return;
-    }
+    await movieService.deleteMovie(movieId); // will throw NotFoundError if not found
 
     res.status(204).send(); // No content
   } catch (error) {
-    res.status(500).json({ message: 'Failed to delete movie', error });
+    next(error);
   }
 };
 
 /**
  * Search movies by title, genre, or director.
- * @param req Express request
- * @param res Express response
  */
 export const handleSearchMovies = async (
   req: Request,
-  res: Response
+  res: Response,
+  next: NextFunction
 ): Promise<void> => {
   try {
     const { title, genre, director, ageRating } = req.query;
@@ -137,7 +126,7 @@ export const handleSearchMovies = async (
     if (title) searchCriteria.title = title;
     if (genre) searchCriteria.genre = genre;
     if (director) searchCriteria.director = director;
-    if (ageRating) searchCriteria.ageRating = ageRating; 
+    if (ageRating) searchCriteria.ageRating = ageRating;
 
     const movies = await movieService.searchMovies(searchCriteria);
 
@@ -146,6 +135,6 @@ export const handleSearchMovies = async (
       data: movies,
     });
   } catch (error) {
-    res.status(500).json({ message: 'Failed to search movies', error });
+    next(error);
   }
 };

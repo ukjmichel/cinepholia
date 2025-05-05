@@ -9,7 +9,7 @@ import {
 import { Optional } from 'sequelize';
 
 // Interface representing the Movie entity attributes
-interface MovieAttributes {
+export interface MovieAttributes {
   movieId: string;
   title: string;
   description: string;
@@ -22,7 +22,7 @@ interface MovieAttributes {
 }
 
 // Interface for creation attributes (movieId is optional because it's auto-generated)
-interface MovieCreationAttributes
+export interface MovieCreationAttributes
   extends Optional<MovieAttributes, 'movieId'> {}
 
 // Sequelize model definition for the 'movies' table
@@ -88,5 +88,3 @@ export class MovieModel
   })
   public posterUrl?: string; // Optional: URL to the movie's poster image
 }
-
-export { MovieAttributes, MovieCreationAttributes };

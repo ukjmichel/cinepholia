@@ -1,5 +1,5 @@
 // src/__tests__/movie/movie.controller.spec.ts
-import { Request, Response } from 'express';
+import { Request, Response, NextFunction } from 'express';
 import * as movieController from '../../controllers/movie.controller';
 import { MovieService } from '../../services/movie.service';
 
@@ -7,12 +7,13 @@ import { MovieService } from '../../services/movie.service';
 jest.mock('../../services/movie.service');
 const MockMovieService = MovieService as jest.MockedClass<typeof MovieService>;
 
-// Helpers
-const mockStatus = jest.fn().mockReturnThis();
-const mockJson = jest.fn();
-const mockSend = jest.fn();
 
 describe('Movie Controller', () => {
+  // Helpers
+  let mockStatus: jest.Mock;
+  let mockJson: jest.Mock;
+  let mockSend: jest.Mock;
+  let mockNext: jest.Mock; // <<<<<< ADDED
   let req: Partial<Request>;
   let res: Partial<Response>;
 
@@ -22,12 +23,17 @@ describe('Movie Controller', () => {
       query: {},
       body: {},
     };
+    mockStatus = jest.fn().mockReturnThis();
+    mockJson = jest.fn();
+    mockSend = jest.fn();
+    mockNext = jest.fn(); // <<<<<< ADD THIS
     res = {
       status: mockStatus,
       json: mockJson,
       send: mockSend,
     };
     jest.clearAllMocks();
+    mockNext.mockClear(); // <<<<<< Add this
   });
 
   const validMovie = {
@@ -47,7 +53,11 @@ describe('Movie Controller', () => {
         MockMovieService.prototype.createMovie as jest.Mock
       ).mockResolvedValueOnce(validMovie);
 
-      await movieController.handleCreateMovie(req as Request, res as Response);
+      await movieController.handleCreateMovie(
+        req as Request,
+        res as Response,
+        mockNext as NextFunction
+      );
 
       expect(mockStatus).toHaveBeenCalledWith(201);
       expect(mockJson).toHaveBeenCalledWith({
@@ -56,15 +66,18 @@ describe('Movie Controller', () => {
       });
     });
 
-    it('should handle service error', async () => {
+    it('should call next(error) on failure', async () => {
       (
         MockMovieService.prototype.createMovie as jest.Mock
-      ).mockRejectedValueOnce(new Error());
+      ).mockRejectedValueOnce(new Error('Error'));
 
-      await movieController.handleCreateMovie(req as Request, res as Response);
+      await movieController.handleCreateMovie(
+        req as Request,
+        res as Response,
+        mockNext as NextFunction
+      );
 
-      expect(mockStatus).toHaveBeenCalledWith(500);
-      expect(mockJson).toHaveBeenCalled();
+      expect(mockNext).toHaveBeenCalled();
     });
   });
 
@@ -75,7 +88,11 @@ describe('Movie Controller', () => {
         MockMovieService.prototype.getMovieById as jest.Mock
       ).mockResolvedValueOnce(validMovie);
 
-      await movieController.handleGetMovieById(req as Request, res as Response);
+      await movieController.handleGetMovieById(
+        req as Request,
+        res as Response,
+        mockNext as NextFunction
+      );
 
       expect(mockStatus).toHaveBeenCalledWith(200);
       expect(mockJson).toHaveBeenCalledWith({
@@ -90,21 +107,28 @@ describe('Movie Controller', () => {
         MockMovieService.prototype.getMovieById as jest.Mock
       ).mockResolvedValueOnce(null);
 
-      await movieController.handleGetMovieById(req as Request, res as Response);
+      await movieController.handleGetMovieById(
+        req as Request,
+        res as Response,
+        mockNext as NextFunction
+      );
 
       expect(mockStatus).toHaveBeenCalledWith(404);
       expect(mockJson).toHaveBeenCalledWith({ message: 'Movie not found' });
     });
 
-    it('should handle service error', async () => {
+    it('should call next(error) on failure', async () => {
       (
         MockMovieService.prototype.getMovieById as jest.Mock
-      ).mockRejectedValueOnce(new Error());
+      ).mockRejectedValueOnce(new Error('Error'));
 
-      await movieController.handleGetMovieById(req as Request, res as Response);
+      await movieController.handleGetMovieById(
+        req as Request,
+        res as Response,
+        mockNext as NextFunction
+      );
 
-      expect(mockStatus).toHaveBeenCalledWith(500);
-      expect(mockJson).toHaveBeenCalled();
+      expect(mockNext).toHaveBeenCalled();
     });
   });
 
@@ -114,7 +138,11 @@ describe('Movie Controller', () => {
         MockMovieService.prototype.getAllMovies as jest.Mock
       ).mockResolvedValueOnce([validMovie]);
 
-      await movieController.handleGetAllMovies(req as Request, res as Response);
+      await movieController.handleGetAllMovies(
+        req as Request,
+        res as Response,
+        mockNext as NextFunction
+      );
 
       expect(mockStatus).toHaveBeenCalledWith(200);
       expect(mockJson).toHaveBeenCalledWith({
@@ -123,15 +151,18 @@ describe('Movie Controller', () => {
       });
     });
 
-    it('should handle service error', async () => {
+    it('should call next(error) on failure', async () => {
       (
         MockMovieService.prototype.getAllMovies as jest.Mock
-      ).mockRejectedValueOnce(new Error());
+      ).mockRejectedValueOnce(new Error('Error'));
 
-      await movieController.handleGetAllMovies(req as Request, res as Response);
+      await movieController.handleGetAllMovies(
+        req as Request,
+        res as Response,
+        mockNext as NextFunction
+      );
 
-      expect(mockStatus).toHaveBeenCalledWith(500);
-      expect(mockJson).toHaveBeenCalled();
+      expect(mockNext).toHaveBeenCalled();
     });
   });
 
@@ -143,7 +174,11 @@ describe('Movie Controller', () => {
         MockMovieService.prototype.updateMovie as jest.Mock
       ).mockResolvedValueOnce({ ...validMovie, title: 'Updated Title' });
 
-      await movieController.handleUpdateMovie(req as Request, res as Response);
+      await movieController.handleUpdateMovie(
+        req as Request,
+        res as Response,
+        mockNext as NextFunction
+      );
 
       expect(mockStatus).toHaveBeenCalledWith(200);
       expect(mockJson).toHaveBeenCalledWith({
@@ -158,21 +193,28 @@ describe('Movie Controller', () => {
         MockMovieService.prototype.updateMovie as jest.Mock
       ).mockResolvedValueOnce(null);
 
-      await movieController.handleUpdateMovie(req as Request, res as Response);
+      await movieController.handleUpdateMovie(
+        req as Request,
+        res as Response,
+        mockNext as NextFunction
+      );
 
       expect(mockStatus).toHaveBeenCalledWith(404);
       expect(mockJson).toHaveBeenCalledWith({ message: 'Movie not found' });
     });
 
-    it('should handle service error', async () => {
+    it('should call next(error) on failure', async () => {
       (
         MockMovieService.prototype.updateMovie as jest.Mock
-      ).mockRejectedValueOnce(new Error());
+      ).mockRejectedValueOnce(new Error('Error'));
 
-      await movieController.handleUpdateMovie(req as Request, res as Response);
+      await movieController.handleUpdateMovie(
+        req as Request,
+        res as Response,
+        mockNext as NextFunction
+      );
 
-      expect(mockStatus).toHaveBeenCalledWith(500);
-      expect(mockJson).toHaveBeenCalled();
+      expect(mockNext).toHaveBeenCalled();
     });
   });
 
@@ -183,33 +225,43 @@ describe('Movie Controller', () => {
         MockMovieService.prototype.deleteMovie as jest.Mock
       ).mockResolvedValueOnce(true);
 
-      await movieController.handleDeleteMovie(req as Request, res as Response);
+      await movieController.handleDeleteMovie(
+        req as Request,
+        res as Response,
+        mockNext as NextFunction
+      );
 
       expect(mockStatus).toHaveBeenCalledWith(204);
       expect(mockSend).toHaveBeenCalled();
     });
 
-    it('should return 404 if movie not found', async () => {
+    it('should call next(error) if movie not found', async () => {
       req.params = { movieId: 'uuid-movie-123' };
       (
         MockMovieService.prototype.deleteMovie as jest.Mock
-      ).mockResolvedValueOnce(false);
+      ).mockRejectedValueOnce(new Error('Not found'));
 
-      await movieController.handleDeleteMovie(req as Request, res as Response);
+      await movieController.handleDeleteMovie(
+        req as Request,
+        res as Response,
+        mockNext as NextFunction
+      );
 
-      expect(mockStatus).toHaveBeenCalledWith(404);
-      expect(mockJson).toHaveBeenCalledWith({ message: 'Movie not found' });
+      expect(mockNext).toHaveBeenCalled();
     });
 
-    it('should handle service error', async () => {
+    it('should call next(error) on failure', async () => {
       (
         MockMovieService.prototype.deleteMovie as jest.Mock
-      ).mockRejectedValueOnce(new Error());
+      ).mockRejectedValueOnce(new Error('Error'));
 
-      await movieController.handleDeleteMovie(req as Request, res as Response);
+      await movieController.handleDeleteMovie(
+        req as Request,
+        res as Response,
+        mockNext as NextFunction
+      );
 
-      expect(mockStatus).toHaveBeenCalledWith(500);
-      expect(mockJson).toHaveBeenCalled();
+      expect(mockNext).toHaveBeenCalled();
     });
   });
 
@@ -220,7 +272,11 @@ describe('Movie Controller', () => {
         MockMovieService.prototype.searchMovies as jest.Mock
       ).mockResolvedValueOnce([validMovie]);
 
-      await movieController.handleSearchMovies(req as Request, res as Response);
+      await movieController.handleSearchMovies(
+        req as Request,
+        res as Response,
+        mockNext as NextFunction
+      );
 
       expect(mockStatus).toHaveBeenCalledWith(200);
       expect(mockJson).toHaveBeenCalledWith({
@@ -229,15 +285,18 @@ describe('Movie Controller', () => {
       });
     });
 
-    it('should handle service error', async () => {
+    it('should call next(error) on failure', async () => {
       (
         MockMovieService.prototype.searchMovies as jest.Mock
-      ).mockRejectedValueOnce(new Error());
+      ).mockRejectedValueOnce(new Error('Error'));
 
-      await movieController.handleSearchMovies(req as Request, res as Response);
+      await movieController.handleSearchMovies(
+        req as Request,
+        res as Response,
+        mockNext as NextFunction
+      );
 
-      expect(mockStatus).toHaveBeenCalledWith(500);
-      expect(mockJson).toHaveBeenCalled();
+      expect(mockNext).toHaveBeenCalled();
     });
   });
 });

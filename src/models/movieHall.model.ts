@@ -6,14 +6,14 @@ import {
   Table,
 } from 'sequelize-typescript';
 
-interface MovieHallAttributes {
+export interface MovieHallAttributes {
   theaterId: string;
   hallId: string;
   seatsLayout: (string | number)[][]; // 2D array of seats
 }
 
 @Table({ tableName: 'movie_halls', timestamps: true })
-class MovieHallModel
+export class MovieHallModel
   extends Model<MovieHallAttributes>
   implements MovieHallAttributes
 {
@@ -37,5 +37,3 @@ class MovieHallModel
   })
   public seatsLayout!: (string | number)[][];
 }
-
-export { MovieHallModel, MovieHallAttributes };

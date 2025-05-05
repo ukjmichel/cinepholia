@@ -1,6 +1,8 @@
 import { Sequelize } from 'sequelize-typescript';
 import { MovieModel } from '../../models/movie.model';
 import { MovieService } from '../../services/movie.service';
+import { ConflictError } from '../../errors/ConflictError';
+import { NotFoundError } from '../../errors/NotFoundError';
 
 describe('MovieService', () => {
   let sequelize: Sequelize;
@@ -66,9 +68,10 @@ describe('MovieService', () => {
     expect(foundMovie?.title).toBe('Interstellar');
   });
 
-  it('should return null if movie not found by ID', async () => {
-    const movie = await movieService.getMovieById('nonexistent-id');
-    expect(movie).toBeNull();
+  it('should throw NotFoundError if movie not found by ID', async () => {
+    await expect(movieService.getMovieById('nonexistent-id')).rejects.toThrow(
+      NotFoundError
+    );
   });
 
   it('should get all movies', async () => {
@@ -121,12 +124,12 @@ describe('MovieService', () => {
     expect(updatedMovie?.description).toBe('Updated description');
   });
 
-  it('should return null when updating a non-existing movie', async () => {
-    const updatedMovie = await movieService.updateMovie('nonexistent-id', {
-      title: 'Updated Title',
-    });
-
-    expect(updatedMovie).toBeNull();
+  it('should throw NotFoundError when updating a non-existing movie', async () => {
+    await expect(
+      movieService.updateMovie('nonexistent-id', {
+        title: 'Updated Title',
+      })
+    ).rejects.toThrow(NotFoundError);
   });
 
   it('should delete a movie', async () => {
@@ -141,15 +144,17 @@ describe('MovieService', () => {
       durationMinutes: 95,
     });
 
-    const deleted = await movieService.deleteMovie('movieToDelete');
-
-    expect(deleted).toBe(true);
+    await expect(
+      movieService.deleteMovie('movieToDelete')
+    ).resolves.toBeUndefined();
   });
 
-  it('should return false when deleting a non-existing movie', async () => {
-    const deleted = await movieService.deleteMovie('nonexistent-id');
-    expect(deleted).toBe(false);
+  it('should throw NotFoundError when deleting a non-existing movie', async () => {
+    await expect(movieService.deleteMovie('nonexistent-id')).rejects.toThrow(
+      NotFoundError
+    );
   });
+
   it('should search movies by title, genre, and director', async () => {
     await MovieModel.bulkCreate([
       {
@@ -184,25 +189,21 @@ describe('MovieService', () => {
       },
     ]);
 
-    // Search by partial title
     const searchByTitle = await movieService.searchMovies({ title: 'Space' });
     expect(searchByTitle.length).toBe(1);
     expect(searchByTitle[0].title).toBe('Space Journey');
 
-    // Search by genre
     const searchByGenre = await movieService.searchMovies({
       genre: 'Adventure',
     });
     expect(searchByGenre.length).toBe(1);
     expect(searchByGenre[0].genre).toBe('Adventure');
 
-    // Search by director
     const searchByDirector = await movieService.searchMovies({
       director: 'John Doe',
     });
-    expect(searchByDirector.length).toBe(2); // Two movies directed by John Doe
+    expect(searchByDirector.length).toBe(2);
 
-    // Search by non-existing field
     const noResult = await movieService.searchMovies({
       title: 'Nonexistent Movie',
     });
