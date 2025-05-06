@@ -15,16 +15,15 @@ import { UserModel } from './user.model';
 import { ScreeningModel } from './screening.model';
 
 // Interfaces
-interface BookingAttributes {
+export interface BookingAttributes {
   bookingId: string;
   userId: string;
   screeningId: string;
-  bookingDate: Date;
   seatsNumber: number;
-  status: 'pending' | 'used' | 'canceled'; // <-- Restricting to specific values
+  status: 'pending' | 'used' | 'canceled';
 }
 
-interface BookingCreationAttributes
+export interface BookingCreationAttributes
   extends Optional<BookingAttributes, 'bookingId' | 'status'> {}
 
 @Table({ tableName: 'bookings', timestamps: true })
@@ -56,12 +55,6 @@ export class BookingModel
   public screeningId!: string;
 
   @Column({
-    type: DataType.DATE,
-    allowNull: false,
-  })
-  public bookingDate!: Date;
-
-  @Column({
     type: DataType.INTEGER,
     allowNull: false,
   })
@@ -69,7 +62,7 @@ export class BookingModel
 
   @Default('pending')
   @Column({
-    type: DataType.ENUM('pending', 'used', 'canceled'), // <-- using ENUM for strict validation in database
+    type: DataType.ENUM('pending', 'used', 'canceled'),
     allowNull: false,
   })
   public status!: 'pending' | 'used' | 'canceled';
@@ -82,4 +75,4 @@ export class BookingModel
   public screening!: ScreeningModel;
 }
 
-export { BookingAttributes, BookingCreationAttributes };
+

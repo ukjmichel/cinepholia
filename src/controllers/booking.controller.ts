@@ -2,8 +2,14 @@ import { Request, Response, NextFunction } from 'express';
 import { BookingService } from '../services/booking.service';
 import { BookingAttributes } from '../models/booking.model';
 import { ScreeningService } from '../services/screening.service';
-import { SeatBookingService } from '../services/seatBooking.service';
 import { MovieHallService } from '../services/movieHall.service';
+
+import { BadRequestError } from '../errors/BadRequestError';
+import { Transaction } from 'sequelize';
+import crypto from 'crypto';
+import { sequelize } from '../config/db';
+import { SeatBookingService } from '../services/seatBooking.service';
+import { NotAuthorizedError } from '../errors/NotAuthorizedError ';
 
 export const screeningService = new ScreeningService();
 export const seatBookingService = new SeatBookingService();
@@ -12,18 +18,10 @@ export const movieHallService = new MovieHallService();
 // Create a singleton instance of the service
 const bookingService = new BookingService();
 
-
-/**
- * Create a new booking
- * @param req - Express request object with booking data in body
- * @param res - Express response object
- * @param next - Express next function
- */
-
 interface ExtendedRequest extends Request {
   user?: any;
   screening?: any;
-  validatedSeats?: string[];
+  seatIds?: string[];
 }
 
 /**
@@ -31,69 +29,85 @@ interface ExtendedRequest extends Request {
  * Expects:
  * - req.user to be set by authentication middleware
  * - req.validatedSeats to be set by seat validation middleware
- * - req.body to contain screeningId, bookingDate, seatsNumber
+ * - req.body to contain screeningId, seatsNumber, seatIds
  */
 export const handleCreateBooking = async (
   req: ExtendedRequest,
   res: Response,
   next: NextFunction
 ): Promise<void> => {
+  let transaction: Transaction | null = null;
+
   try {
+    // Start a transaction
+    transaction = await sequelize.transaction();
+
     // Extract booking data, but ignore userId coming from body
-    const { screeningId, bookingDate, seatsNumber } = req.body;
+    const { screeningId, seatsNumber, seatIds } = req.body;
 
     // Force the userId from the authenticated user
     const userId = req.user?.id;
-
     if (!userId) {
-      res
-        .status(401)
-        .json({ message: 'Unauthorized: user not found in token' });
-      return;
+      if (transaction) await transaction.rollback();
+      throw new NotAuthorizedError('User is not authenticated');
     }
 
     // Get validated seat IDs from previous middleware or from request body
-    const seatIds = req.validatedSeats || req.body.seatId;
-
     if (!seatIds || seatIds.length === 0) {
-      res.status(400).json({ message: 'No valid seats provided for booking' });
-      return;
+      if (transaction) await transaction.rollback();
+      throw new BadRequestError('No seats selected');
     }
 
     // Ensure seatsNumber matches the actual number of seats
     const actualSeatsNumber = seatIds.length;
     if (seatsNumber !== actualSeatsNumber) {
-      res.status(400).json({
-        message: 'Seats number mismatch',
-        expected: seatsNumber,
-        actual: actualSeatsNumber,
-      });
-      return;
+      if (transaction) await transaction.rollback();
+      throw new BadRequestError('Seats number mismatch');
     }
+
+    // Safety check that transaction exists
+    if (!transaction) {
+      throw new Error('Transaction failed to initialize');
+    }
+
+    // 🔥 Validate both seat existence and availability in parallel
+    await Promise.all([
+      seatBookingService.checkSeatsExist(screeningId, seatIds, transaction),
+      seatBookingService.checkSeatsAvailable(screeningId, seatIds, transaction),
+    ]);
 
     // Generate a unique booking ID
     const bookingId = crypto.randomUUID();
 
     // Create the booking
-    const booking = await bookingService.createBooking({
-      bookingId,
-      userId,
-      screeningId,
-      bookingDate: new Date(bookingDate),
-      seatsNumber: actualSeatsNumber,
-      status: 'pending',
-    });
-
-    // Book each seat
-    const seatBookings = [];
-    for (const seatId of seatIds) {
-      const seatBooking = await seatBookingService.createSeatBooking({
+    const booking = await bookingService.createBooking(
+      {
+        bookingId,
+        userId,
         screeningId,
-        seatId,
-        bookingId: booking.bookingId,
-      });
-      seatBookings.push(seatBooking);
-    }
+        seatsNumber: actualSeatsNumber,
+        status: 'pending',
+      },
+      transaction
+    );
+
+    // 🔥 Book each seat in parallel
+    const seatBookings = await Promise.all(
+      seatIds.map((seatId: string) =>
+        seatBookingService.createSeatBooking(
+          {
+            screeningId,
+            seatId,
+            bookingId: booking.bookingId,
+          },
+          transaction as Transaction
+        )
+      )
+    );
+
+    // Commit the transaction if everything succeeded
+    await transaction.commit();
+    transaction = null; // Set to null after commit to avoid double commit/rollback
 
     // Return comprehensive booking information
     res.status(201).json({
@@ -103,40 +117,21 @@ export const handleCreateBooking = async (
       totalSeats: seatBookings.length,
     });
   } catch (error) {
-    console.error('Error creating booking:', error);
-
-    // Provide more specific error messages based on error type
-    if (error instanceof Error) {
-      if (error.message.includes('foreign key constraint')) {
-        res.status(400).json({
-          message: 'Invalid reference: The screeningId may not exist',
-          error: error.message,
-        });
-        return;
-      }
-
-      if (error.message.includes('unique constraint')) {
-        res.status(409).json({
-          message: 'Conflict: A booking with this ID already exists',
-          error: error.message,
-        });
-        return;
+    // Rollback the transaction if there was an error and it exists
+    if (transaction) {
+      try {
+        await transaction.rollback();
+      } catch (rollbackError) {
+        console.error('Error rolling back transaction:', rollbackError);
       }
     }
 
-    // Generic error fallback
-    res.status(500).json({
-      message: 'Failed to create booking',
-      error: error instanceof Error ? error.message : 'Unknown error',
-    });
+    next(error);
   }
 };
 
 /**
  * Get a booking by ID
- * @param req - Express request object with bookingId in params
- * @param res - Express response object
- * @param next - Express next function
  */
 export const handleGetBookingById = async (
   req: Request,
@@ -156,19 +151,12 @@ export const handleGetBookingById = async (
 
     res.status(200).json(booking);
   } catch (error) {
-    console.error('Error fetching booking:', error);
-    res.status(500).json({
-      message: 'Failed to fetch booking',
-      error: (error as Error).message,
-    });
+    next(error);
   }
 };
 
 /**
  * Get all bookings
- * @param req - Express request object
- * @param res - Express response object
- * @param next - Express next function
  */
 export const handleGetAllBookings = async (
   req: Request,
@@ -179,88 +167,126 @@ export const handleGetAllBookings = async (
     const bookings = await bookingService.getAllBookings();
     res.status(200).json(bookings);
   } catch (error) {
-    console.error('Error fetching bookings:', error);
-    res.status(500).json({
-      message: 'Failed to fetch bookings',
-      error: (error as Error).message,
-    });
+    next(error);
   }
 };
 
 /**
  * Update a booking by ID
- * @param req - Express request object with bookingId in params and update data in body
- * @param res - Express response object
- * @param next - Express next function
  */
 export const handleUpdateBooking = async (
   req: Request,
   res: Response,
   next: NextFunction
 ): Promise<void> => {
+  let transaction: Transaction | null = null;
+
   try {
+    // Start a transaction
+    transaction = await sequelize.transaction();
+
     const { bookingId } = req.params;
     const updateData: Partial<BookingAttributes> = req.body;
 
+    // Safety check that transaction exists
+    if (!transaction) {
+      throw new Error('Transaction failed to initialize');
+    }
+
     const updatedBooking = await bookingService.updateBooking(
       bookingId,
-      updateData
+      updateData,
+      transaction
     );
 
     if (!updatedBooking) {
+      await transaction.rollback();
+      transaction = null;
       res
         .status(404)
         .json({ message: `Booking with ID ${bookingId} not found` });
       return;
     }
 
+    // Commit the transaction
+    await transaction.commit();
+    transaction = null;
+
     res.status(200).json(updatedBooking);
   } catch (error) {
-    console.error('Error updating booking:', error);
-    res.status(500).json({
-      message: 'Failed to update booking',
-      error: (error as Error).message,
-    });
+    // Rollback the transaction if there was an error and it exists
+    if (transaction) {
+      try {
+        await transaction.rollback();
+      } catch (rollbackError) {
+        console.error('Error rolling back transaction:', rollbackError);
+      }
+    }
+
+    next(error);
   }
 };
 
 /**
  * Delete a booking by ID
- * @param req - Express request object with bookingId in params
- * @param res - Express response object
- * @param next - Express next function
  */
 export const handleDeleteBooking = async (
   req: Request,
   res: Response,
   next: NextFunction
 ): Promise<void> => {
+  let transaction: Transaction | null = null;
+
   try {
+    // Start a transaction
+    transaction = await sequelize.transaction();
+
     const { bookingId } = req.params;
-    const deleted = await bookingService.deleteBooking(bookingId);
+
+    // Safety check that transaction exists
+    if (!transaction) {
+      throw new Error('Transaction failed to initialize');
+    }
+
+    // First, delete associated seat bookings
+    await seatBookingService.deleteSeatBookingsByBookingId(
+      bookingId,
+      transaction
+    );
+
+    // Then delete the booking
+    const deleted = await bookingService.deleteBooking(bookingId, transaction);
 
     if (!deleted) {
+      await transaction.rollback();
+      transaction = null;
       res
         .status(404)
         .json({ message: `Booking with ID ${bookingId} not found` });
       return;
     }
 
+    // Commit the transaction
+    await transaction.commit();
+    transaction = null;
+
     res.status(204).send();
   } catch (error) {
-    console.error('Error deleting booking:', error);
-    res.status(500).json({
-      message: 'Failed to delete booking',
-      error: (error as Error).message,
-    });
+    // Rollback the transaction if there was an error and it exists
+    if (transaction) {
+      try {
+        await transaction.rollback();
+      } catch (rollbackError) {
+        console.error('Error rolling back transaction:', rollbackError);
+      }
+    }
+
+    next(error);
   }
 };
 
 /**
  * Get all bookings for a specific user
- * @param req - Express request object with userId in params
- * @param res - Express response object
- * @param next - Express next function
  */
 export const handleGetBookingsByUser = async (
   req: Request,
@@ -273,74 +299,111 @@ export const handleGetBookingsByUser = async (
 
     res.status(200).json(bookings);
   } catch (error) {
-    console.error('Error fetching user bookings:', error);
-    res.status(500).json({
-      message: 'Failed to fetch user bookings',
-      error: (error as Error).message,
-    });
+    next(error);
   }
 };
 
 /**
  * Mark a booking as used
- * @param req - Express request object with bookingId in params
- * @param res - Express response object
- * @param next - Express next function
  */
 export const handleMarkBookingAsUsed = async (
   req: Request,
   res: Response,
   next: NextFunction
 ): Promise<void> => {
+  let transaction: Transaction | null = null;
+
   try {
+    // Start a transaction
+    transaction = await sequelize.transaction();
+
     const { bookingId } = req.params;
-    const booking = await bookingService.markBookingAsUsed(bookingId);
+
+    // Safety check that transaction exists
+    if (!transaction) {
+      throw new Error('Transaction failed to initialize');
+    }
+
+    const booking = await bookingService.markBookingAsUsed(
+      bookingId,
+      transaction
+    );
 
     if (!booking) {
+      await transaction.rollback();
+      transaction = null;
       res
         .status(404)
         .json({ message: `Booking with ID ${bookingId} not found` });
       return;
     }
 
+    // Commit the transaction
+    await transaction.commit();
+    transaction = null;
+
     res.status(200).json(booking);
   } catch (error) {
-    console.error('Error marking booking as used:', error);
-    res.status(500).json({
-      message: 'Failed to mark booking as used',
-      error: (error as Error).message,
-    });
+    // Rollback the transaction if there was an error and it exists
+    if (transaction) {
+      try {
+        await transaction.rollback();
+      } catch (rollbackError) {
+        console.error('Error rolling back transaction:', rollbackError);
+      }
+    }
+
+    next(error);
   }
 };
 
 /**
  * Cancel a booking
- * @param req - Express request object with bookingId in params
- * @param res - Express response object
- * @param next - Express next function
  */
 export const handleCancelBooking = async (
   req: Request,
   res: Response,
   next: NextFunction
 ): Promise<void> => {
+  let transaction: Transaction | null = null;
+
   try {
+    // Start a transaction
+    transaction = await sequelize.transaction();
+
     const { bookingId } = req.params;
-    const booking = await bookingService.cancelBooking(bookingId);
+
+    // Safety check that transaction exists
+    if (!transaction) {
+      throw new Error('Transaction failed to initialize');
+    }
+
+    const booking = await bookingService.cancelBooking(bookingId, transaction);
 
     if (!booking) {
+      await transaction.rollback();
+      transaction = null;
       res
         .status(404)
         .json({ message: `Booking with ID ${bookingId} not found` });
       return;
     }
 
+    // Commit the transaction
+    await transaction.commit();
+    transaction = null;
+
     res.status(200).json(booking);
   } catch (error) {
-    console.error('Error canceling booking:', error);
-    res.status(500).json({
-      message: 'Failed to cancel booking',
-      error: (error as Error).message,
-    });
+    // Rollback the transaction if there was an error and it exists
+    if (transaction) {
+      try {
+        await transaction.rollback();
+      } catch (rollbackError) {
+        console.error('Error rolling back transaction:', rollbackError);
+      }
+    }
+
+    next(error);
   }
 };

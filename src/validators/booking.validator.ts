@@ -12,21 +12,6 @@ export const validateBookingRequest = [
     .isUUID()
     .withMessage('screeningId must be a valid UUID'),
 
-  // bookingDate validation
-  body('bookingDate')
-    .exists()
-    .withMessage('bookingDate is required')
-    .isISO8601()
-    .withMessage('bookingDate must be a valid date')
-    .custom((value) => {
-      const date = new Date(value);
-      const now = new Date();
-      if (date < now) {
-        throw new Error('bookingDate must be in the future');
-      }
-      return true;
-    }),
-
   // seatsNumber validation
   body('seatsNumber')
     .exists()
@@ -35,7 +20,7 @@ export const validateBookingRequest = [
     .withMessage('seatsNumber must be a positive integer'),
 
   // seatId validation
-  body('seatId')
+  body('seatIds')
     .exists()
     .withMessage('seatId is required')
     .isArray({ min: 1 })

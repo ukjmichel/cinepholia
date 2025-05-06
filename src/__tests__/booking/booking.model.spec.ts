@@ -58,7 +58,7 @@ describe('BookingModel', () => {
       genre: 'Sci-Fi',
       releaseDate: new Date('2024-01-01'),
       director: 'Test Director',
-      durationTime: "02:00:00",
+      durationTime: '02:00:00',
     });
 
     const theater = await MovieTheaterModel.create({
@@ -86,7 +86,7 @@ describe('BookingModel', () => {
       theaterId: theater.theaterId,
       hallId: hall.hallId,
       startTime: new Date(),
-      durationTime: "02:00:00",
+      durationTime: '02:00:00',
     });
 
     return { user, screening };
@@ -98,8 +98,7 @@ describe('BookingModel', () => {
     const booking = await BookingModel.create({
       userId: user.id,
       screeningId: screening.screeningId,
-      bookingDate: new Date(),
-      seatsNumber: 2,
+      seatsNumber: 2, // no more bookingDate
     });
 
     expect(booking).toBeDefined();
@@ -112,8 +111,7 @@ describe('BookingModel', () => {
     const booking = await BookingModel.create({
       userId: user.id,
       screeningId: screening.screeningId,
-      bookingDate: new Date(),
-      seatsNumber: 2,
+      seatsNumber: 2, // no more bookingDate
     });
 
     booking.status = 'used';
@@ -129,8 +127,7 @@ describe('BookingModel', () => {
     const booking = await BookingModel.create({
       userId: user.id,
       screeningId: screening.screeningId,
-      bookingDate: new Date(),
-      seatsNumber: 2,
+      seatsNumber: 2, // no more bookingDate
     });
 
     booking.status = 'canceled';

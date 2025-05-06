@@ -25,7 +25,7 @@ const bookingRouter = Router();
  * /bookings:
  *   post:
  *     summary: Create a new booking with seat reservations
- *     description: Creates a booking for a specific screening with selected seats. Authentication required.
+ *     description: Creates a booking for a specific screening with selected seats using transaction support for data consistency. Authentication required.
  *     tags:
  *       - Bookings
  *     security:
@@ -38,26 +38,20 @@ const bookingRouter = Router();
  *             type: object
  *             required:
  *               - screeningId
- *               - bookingDate
  *               - seatsNumber
- *               - seatId
+ *               - seatIds
  *             properties:
  *               screeningId:
  *                 type: string
  *                 format: uuid
  *                 description: UUID of the screening to book
  *                 example: "123e4567-e89b-12d3-a456-426614174000"
- *               bookingDate:
- *                 type: string
- *                 format: date-time
- *                 description: Date and time of the booking (must be in the future)
- *                 example: "2023-12-25T20:00:00Z"
  *               seatsNumber:
  *                 type: integer
  *                 minimum: 1
- *                 description: Number of seats to book (must match seatId array length)
+ *                 description: Number of seats to book (must match seatIds array length)
  *                 example: 2
- *               seatId:
+ *               seatIds:
  *                 type: array
  *                 items:
  *                   type: string
@@ -86,9 +80,6 @@ const bookingRouter = Router();
  *                     screeningId:
  *                       type: string
  *                       format: uuid
- *                     bookingDate:
- *                       type: string
- *                       format: date-time
  *                     seatsNumber:
  *                       type: integer
  *                     status:
@@ -192,62 +183,7 @@ bookingRouter.post(
   '/',
   validateBookingRequest,
   authenticateJwt,
-  isScreeningExist,
-  isValidSeat,
-  isSeatAvailable,
   handleCreateBooking
-);
-
-/**
- * @swagger
- * /bookings:
- *   get:
- *     summary: Get all bookings
- *     tags:
- *       - Bookings
- *     security:
- *       - bearerAuth: []
- *     responses:
- *       200:
- *         description: List of bookings
- *       500:
- *         description: Internal server error
- */
-bookingRouter.get(
-  '/',
-  authenticateJwt,
-  Permission.authorize('employé'),
-  handleGetAllBookings
-);
-
-/**
- * @swagger
- * /bookings/{bookingId}:
- *   get:
- *     summary: Get booking by ID
- *     tags:
- *       - Bookings
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: bookingId
- *         required: true
- *         schema:
- *           type: string
- *     responses:
- *       200:
- *         description: Booking found
- *       404:
- *         description: Booking not found
- *       500:
- *         description: Internal server error
- */
-bookingRouter.get(
-  '/:bookingId',
-  authenticateJwt,
-  Permission.isBookingOwnerOrStaff(),
-  handleGetBookingById
 );
 
 /**
@@ -255,6 +191,7 @@ bookingRouter.get(
  * /bookings/{bookingId}:
  *   put:
  *     summary: Update a booking
+ *     description: Updates a booking with transaction support to ensure data consistency.
  *     tags:
  *       - Bookings
  *     security:
@@ -301,6 +238,7 @@ bookingRouter.put(
  * /bookings/{bookingId}:
  *   delete:
  *     summary: Delete a booking
+ *     description: Deletes a booking and all associated seat bookings within a transaction to ensure data consistency.
  *     tags:
  *       - Bookings
  *     security:
@@ -335,6 +273,7 @@ bookingRouter.delete(
  * /bookings/{bookingId}/used:
  *   patch:
  *     summary: Mark a booking as used
+ *     description: Updates booking status to 'used' with transaction support to ensure data consistency.
  *     tags:
  *       - Bookings
  *     security:
@@ -365,6 +304,7 @@ bookingRouter.patch(
  * /bookings/{bookingId}/cancel:
  *   patch:
  *     summary: Cancel a booking
+ *     description: Updates booking status to 'canceled' with transaction support to ensure data consistency.
  *     tags:
  *       - Bookings
  *     security:
@@ -389,38 +329,3 @@ bookingRouter.patch(
   Permission.isBookingOwnerOrStaff(),
   handleCancelBooking
 );
-
-/**
- * @swagger
- * /bookings/user/{userId}:
- *   get:
- *     summary: Get bookings for a user
- *     tags:
- *       - Bookings
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: userId
- *         required: true
- *         schema:
- *           type: string
- *     responses:
- *       200:
- *         description: List of bookings for the user
- *       401:
- *         description: Unauthorized
- *       403:
- *         description: Forbidden
- *       500:
- *         description: Internal server error
- */
-
-bookingRouter.get(
-  '/user/:userId',
-  authenticateJwt,
-  Permission.selfOrStaff(),
-  handleGetBookingsByUser
-);
-
-export default bookingRouter;
