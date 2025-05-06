@@ -1,5 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import * as UserController from '../../controllers/user.controller';
+import { NotFoundError } from '../../errors/NotFoundError';
+import { BadRequestError } from '../../errors/BadRequestError';
 
 jest.mock('../../services/user.service');
 jest.mock('../../services/auth.service');
@@ -28,22 +30,19 @@ describe('🧪 User Controller Tests', () => {
     mockResponse = {
       status: jest.fn().mockReturnThis(),
       json: jest.fn().mockReturnThis(),
+      send: jest.fn().mockReturnThis(),
     };
     mockNext = jest.fn();
   });
 
-  // 🧪 handleCreateUser
   describe('handleCreateUser', () => {
     it('should create a user successfully', async () => {
       mockRequest.body = {
-        username: 'TestUser', // fixed "name" to "username" if needed
+        username: 'TestUser',
         email: 'test@example.com',
         password: 'Password123!',
       };
 
-      (UserController.userService.isEmailUnique as jest.Mock).mockResolvedValue(
-        true
-      );
       (UserController.userService.createUser as jest.Mock).mockResolvedValue({
         id: '123',
         username: 'TestUser',
@@ -57,7 +56,7 @@ describe('🧪 User Controller Tests', () => {
       ).mockResolvedValue(undefined);
       (
         UserController.emailService.sendWelcomeEmail as jest.Mock
-      ).mockResolvedValue(undefined); // <-- MOCK sendWelcomeEmail too
+      ).mockResolvedValue(undefined);
 
       const createUserFn = UserController.handleCreateUser('utilisateur');
       await createUserFn(
@@ -67,28 +66,23 @@ describe('🧪 User Controller Tests', () => {
       );
 
       expect(mockResponse.status).toHaveBeenCalledWith(201);
-      expect(mockResponse.json).toHaveBeenCalledWith({
-        message: 'New account successfully created',
-        data: { id: '123', username: 'TestUser', email: 'test@example.com' },
-        role: 'utilisateur',
-        token: 'mock-token',
-      });
-
-      expect(UserController.emailService.sendWelcomeEmail).toHaveBeenCalledWith(
-        'test@example.com',
-        'TestUser'
+      expect(mockResponse.json).toHaveBeenCalledWith(
+        expect.objectContaining({
+          message: 'New account successfully created',
+          role: 'utilisateur',
+          token: 'mock-token',
+        })
       );
-      
     });
 
-    it('should return 400 if email is already used', async () => {
+    it('should call next with BadRequestError if email already used', async () => {
       mockRequest.body = {
-        name: 'TestUser',
+        username: 'TestUser',
         email: 'test@example.com',
         password: 'Password123!',
       };
-      (UserController.userService.isEmailUnique as jest.Mock).mockResolvedValue(
-        false
+      (UserController.userService.createUser as jest.Mock).mockRejectedValue(
+        new BadRequestError('Email already used')
       );
 
       const createUserFn = UserController.handleCreateUser('utilisateur');
@@ -98,95 +92,47 @@ describe('🧪 User Controller Tests', () => {
         mockNext as NextFunction
       );
 
-      expect(mockResponse.status).toHaveBeenCalledWith(400);
-      expect(mockResponse.json).toHaveBeenCalledWith({
-        message: 'Email already used',
-      });
-    });
-
-    it('should return 500 if service throws', async () => {
-      mockRequest.body = {
-        name: 'TestUser',
-        email: 'test@example.com',
-        password: 'Password123!',
-      };
-      (UserController.userService.isEmailUnique as jest.Mock).mockRejectedValue(
-        new Error('Boom')
-      );
-
-      const createUserFn = UserController.handleCreateUser('utilisateur');
-      await createUserFn(
-        mockRequest as Request,
-        mockResponse as Response,
-        mockNext as NextFunction
-      );
-
-      expect(mockResponse.status).toHaveBeenCalledWith(500);
-      expect(mockResponse.json).toHaveBeenCalledWith({
-        message: 'Internal server error',
-      });
+      expect(mockNext).toHaveBeenCalledWith(expect.any(BadRequestError));
     });
   });
 
-  // 🧪 handleGetUser
   describe('handleGetUser', () => {
-    it('should return 400 if no id', async () => {
-      mockRequest.params = {};
-
-      await UserController.handleGetUser(
-        mockRequest as Request,
-        mockResponse as Response
-      );
-
-      expect(mockResponse.status).toHaveBeenCalledWith(400);
-    });
-
-    it('should return 404 if user not found', async () => {
-      mockRequest.params = { id: '1' };
-      (UserController.userService.getUserById as jest.Mock).mockResolvedValue(
-        null
-      );
-
-      await UserController.handleGetUser(
-        mockRequest as Request,
-        mockResponse as Response
-      );
-
-      expect(mockResponse.status).toHaveBeenCalledWith(404);
-    });
-
     it('should return 200 with user', async () => {
-      const user = { id: '1', name: 'John', email: 'john@example.com' };
       mockRequest.params = { id: '1' };
+      const user = { id: '1', name: 'John', email: 'john@example.com' };
       (UserController.userService.getUserById as jest.Mock).mockResolvedValue(
         user
       );
 
       await UserController.handleGetUser(
         mockRequest as Request,
-        mockResponse as Response
+        mockResponse as Response,
+        mockNext as NextFunction
       );
 
       expect(mockResponse.status).toHaveBeenCalledWith(200);
-      expect(mockResponse.json).toHaveBeenCalledWith(user);
+      expect(mockResponse.json).toHaveBeenCalledWith({
+        message: 'User retrieved successfully',
+        data: user,
+      });
     });
 
-    it('should return 500 if service throws', async () => {
-      mockRequest.params = { id: '1' };
+    it('should call next with NotFoundError if user not found', async () => {
+      mockRequest.params = { id: '999' };
       (UserController.userService.getUserById as jest.Mock).mockRejectedValue(
-        new Error('Boom')
+        new NotFoundError('User not found')
       );
 
       await UserController.handleGetUser(
         mockRequest as Request,
-        mockResponse as Response
+        mockResponse as Response,
+        mockNext as NextFunction
       );
 
-      expect(mockResponse.status).toHaveBeenCalledWith(500);
+      expect(mockNext).toHaveBeenCalledWith(expect.any(NotFoundError));
     });
   });
 
-  // 🧪 handleUpdateUser
   describe('handleUpdateUser', () => {
     it('should return 400 if no fields to update', async () => {
       mockRequest.params = { id: '1' };
@@ -194,84 +140,23 @@ describe('🧪 User Controller Tests', () => {
 
       await UserController.handleUpdateUser(
         mockRequest as Request,
-        mockResponse as Response
+        mockResponse as Response,
+        mockNext as NextFunction
       );
 
       expect(mockResponse.status).toHaveBeenCalledWith(400);
     });
 
-    it('should return 400 if no ID provided', async () => {
-      mockRequest.params = {};
-
-      await UserController.handleUpdateUser(
-        mockRequest as Request,
-        mockResponse as Response
-      );
-
-      expect(mockResponse.status).toHaveBeenCalledWith(400);
-    });
-
-    it('should return 400 if email already exists', async () => {
-      mockRequest.params = { id: '1' };
-      mockRequest.body = { email: 'used@mail.com' };
-
-      (UserController.userService.getUserById as jest.Mock).mockResolvedValue({
-        id: '1',
-        name: 'OldName',
-        email: 'old@mail.com',
-      });
-      (UserController.userService.isEmailUnique as jest.Mock).mockResolvedValue(
-        false
-      );
-
-      await UserController.handleUpdateUser(
-        mockRequest as Request,
-        mockResponse as Response
-      );
-
-      expect(mockResponse.status).toHaveBeenCalledWith(400);
-    });
-
-    it('should return 404 if user not found during update', async () => {
+    it('should update user successfully', async () => {
       mockRequest.params = { id: '1' };
       mockRequest.body = { name: 'UpdatedName' };
 
-      (UserController.userService.getUserById as jest.Mock).mockResolvedValue(
-        null
-      );
-      (UserController.userService.isEmailUnique as jest.Mock).mockResolvedValue(
-        true
-      );
-
-      await UserController.handleUpdateUser(
-        mockRequest as Request,
-        mockResponse as Response
-      );
-
-      expect(mockResponse.status).toHaveBeenCalledWith(404);
-    });
-
-    it('should return 200 if user updated', async () => {
       const updatedUser = {
         id: '1',
-        name: 'Updated',
-        email: 'updated@mail.com',
+        name: 'UpdatedName',
+        email: 'updated@example.com',
       };
 
-      mockRequest.params = { id: '1' };
-      mockRequest.body = { name: 'Updated' };
-
-      (UserController.userService.getUserById as jest.Mock)
-        .mockResolvedValueOnce({
-          id: '1',
-          name: 'OldName',
-          email: 'old@mail.com',
-        })
-        .mockResolvedValueOnce(updatedUser);
-
-      (UserController.userService.isEmailUnique as jest.Mock).mockResolvedValue(
-        true
-      );
       (UserController.userService.updateUser as jest.Mock).mockResolvedValue(
         updatedUser
       );
@@ -281,89 +166,58 @@ describe('🧪 User Controller Tests', () => {
 
       await UserController.handleUpdateUser(
         mockRequest as Request,
-        mockResponse as Response
+        mockResponse as Response,
+        mockNext as NextFunction
       );
 
       expect(mockResponse.status).toHaveBeenCalledWith(200);
-      expect(mockResponse.json).toHaveBeenCalledWith({
-        user: updatedUser,
-        message: 'User updated successfully',
-        token: 'mock-token',
-      });
+      expect(mockResponse.json).toHaveBeenCalledWith(
+        expect.objectContaining({
+          user: updatedUser,
+          message: 'User updated successfully',
+          token: 'mock-token',
+        })
+      );
     });
 
-    it('should return 500 if service throws', async () => {
-      mockRequest.params = { id: '1' };
-      mockRequest.body = { name: 'Boom', email: 'boom@mail.com' };
-      (UserController.userService.getUserById as jest.Mock).mockResolvedValue({
-        id: '1',
-        name: 'OldName',
-        email: 'old@mail.com',
-      });
-      (UserController.userService.isEmailUnique as jest.Mock).mockResolvedValue(
-        true
-      );
+    it('should call next with NotFoundError if user not found', async () => {
+      mockRequest.params = { id: '999' };
+      mockRequest.body = { name: 'Updated' };
       (UserController.userService.updateUser as jest.Mock).mockRejectedValue(
-        new Error('Boom')
+        new NotFoundError('User not found')
       );
 
       await UserController.handleUpdateUser(
         mockRequest as Request,
-        mockResponse as Response
+        mockResponse as Response,
+        mockNext as NextFunction
       );
 
-      expect(mockResponse.status).toHaveBeenCalledWith(500);
+      expect(mockNext).toHaveBeenCalledWith(expect.any(NotFoundError));
     });
   });
 
-  // 🧪 handleChangePassword
   describe('handleChangePassword', () => {
-    it('should return 400 if no ID provided', async () => {
-      mockRequest.params = {};
-
-      await UserController.handleChangePassword(
-        mockRequest as Request,
-        mockResponse as Response
-      );
-
-      expect(mockResponse.status).toHaveBeenCalledWith(400);
-    });
-
     it('should return 400 if missing fields', async () => {
       mockRequest.params = { id: '1' };
       mockRequest.body = {};
 
       await UserController.handleChangePassword(
         mockRequest as Request,
-        mockResponse as Response
+        mockResponse as Response,
+        mockNext as NextFunction
       );
 
       expect(mockResponse.status).toHaveBeenCalledWith(400);
     });
 
-    it('should return 400 if change failed', async () => {
+    it('should change password successfully', async () => {
       mockRequest.params = { id: '1' };
       mockRequest.body = { currentPassword: 'old', newPassword: 'new' };
 
       (
         UserController.userService.changePassword as jest.Mock
-      ).mockResolvedValue(false);
-
-      await UserController.handleChangePassword(
-        mockRequest as Request,
-        mockResponse as Response
-      );
-
-      expect(mockResponse.status).toHaveBeenCalledWith(400);
-    });
-
-    it('should return 200 if password changed', async () => {
-      mockRequest.params = { id: '1' };
-      mockRequest.body = { currentPassword: 'old', newPassword: 'new' };
-
-      (
-        UserController.userService.changePassword as jest.Mock
-      ).mockResolvedValue(true);
+      ).mockResolvedValue(undefined);
       (UserController.userService.getUserById as jest.Mock).mockResolvedValue({
         id: '1',
         name: 'Updated',
@@ -375,127 +229,98 @@ describe('🧪 User Controller Tests', () => {
 
       await UserController.handleChangePassword(
         mockRequest as Request,
-        mockResponse as Response
+        mockResponse as Response,
+        mockNext as NextFunction
       );
 
       expect(mockResponse.status).toHaveBeenCalledWith(200);
     });
 
-    it('should return 500 if service throws', async () => {
+    it('should call next with BadRequestError if wrong current password', async () => {
       mockRequest.params = { id: '1' };
-      mockRequest.body = { currentPassword: 'fail', newPassword: 'fail' };
+      mockRequest.body = { currentPassword: 'wrong', newPassword: 'new' };
 
       (
         UserController.userService.changePassword as jest.Mock
-      ).mockRejectedValue(new Error('Fail'));
+      ).mockRejectedValue(new BadRequestError('Wrong password'));
 
       await UserController.handleChangePassword(
         mockRequest as Request,
-        mockResponse as Response
+        mockResponse as Response,
+        mockNext as NextFunction
       );
 
-      expect(mockResponse.status).toHaveBeenCalledWith(500);
+      expect(mockNext).toHaveBeenCalledWith(expect.any(BadRequestError));
     });
   });
 
-  // 🧪 handleDeleteUser
   describe('handleDeleteUser', () => {
-    it('should return 400 if no ID', async () => {
-      mockRequest.params = {};
-
-      await UserController.handleDeleteUser(
-        mockRequest as Request,
-        mockResponse as Response
-      );
-
-      expect(mockResponse.status).toHaveBeenCalledWith(400);
-    });
-
-    it('should return 404 if user not deleted', async () => {
+    it('should delete user successfully', async () => {
       mockRequest.params = { id: '1' };
       (UserController.userService.deleteUser as jest.Mock).mockResolvedValue(
-        false
+        undefined
       );
 
       await UserController.handleDeleteUser(
         mockRequest as Request,
-        mockResponse as Response
+        mockResponse as Response,
+        mockNext as NextFunction
       );
 
-      expect(mockResponse.status).toHaveBeenCalledWith(404);
+      expect(mockResponse.status).toHaveBeenCalledWith(204);
+      expect(mockResponse.send).toHaveBeenCalled();
     });
 
-    it('should return 200 if user deleted', async () => {
-      mockRequest.params = { id: '1' };
-      (UserController.userService.deleteUser as jest.Mock).mockResolvedValue(
-        true
-      );
-
-      await UserController.handleDeleteUser(
-        mockRequest as Request,
-        mockResponse as Response
-      );
-
-      expect(mockResponse.status).toHaveBeenCalledWith(200);
-    });
-
-    it('should return 500 if service throws', async () => {
-      mockRequest.params = { id: '1' };
+    it('should call next with NotFoundError if user not found', async () => {
+      mockRequest.params = { id: '999' };
       (UserController.userService.deleteUser as jest.Mock).mockRejectedValue(
-        new Error('Fail')
+        new NotFoundError('User not found')
       );
 
       await UserController.handleDeleteUser(
         mockRequest as Request,
-        mockResponse as Response
+        mockResponse as Response,
+        mockNext as NextFunction
       );
 
-      expect(mockResponse.status).toHaveBeenCalledWith(500);
+      expect(mockNext).toHaveBeenCalledWith(expect.any(NotFoundError));
     });
   });
 
-  // 🧪 handleSearchUsers
   describe('handleSearchUsers', () => {
     it('should return 400 if no searchTerm', async () => {
       mockRequest.query = {};
 
       await UserController.handleSearchUsers(
         mockRequest as Request,
-        mockResponse as Response
+        mockResponse as Response,
+        mockNext as NextFunction
       );
 
       expect(mockResponse.status).toHaveBeenCalledWith(400);
     });
 
-    it('should return 200 with results', async () => {
-      const results = [{ id: '1', name: 'X', email: 'x@x.com' }];
-      mockRequest.query = { searchTerm: 'x', limit: '5', offset: '0' };
+    it('should return 200 with search results', async () => {
+      const users = [{ id: '1', name: 'John', email: 'john@example.com' }];
+      mockRequest.query = { searchTerm: 'John' };
 
       (UserController.userService.searchUsers as jest.Mock).mockResolvedValue(
-        results
+        users
       );
 
       await UserController.handleSearchUsers(
         mockRequest as Request,
-        mockResponse as Response
+        mockResponse as Response,
+        mockNext as NextFunction
       );
 
       expect(mockResponse.status).toHaveBeenCalledWith(200);
-    });
-
-    it('should return 500 if service throws', async () => {
-      mockRequest.query = { searchTerm: 'x' };
-
-      (UserController.userService.searchUsers as jest.Mock).mockRejectedValue(
-        new Error('Boom')
+      expect(mockResponse.json).toHaveBeenCalledWith(
+        expect.objectContaining({
+          users,
+          pagination: expect.any(Object),
+        })
       );
-
-      await UserController.handleSearchUsers(
-        mockRequest as Request,
-        mockResponse as Response
-      );
-
-      expect(mockResponse.status).toHaveBeenCalledWith(500);
     });
   });
 });

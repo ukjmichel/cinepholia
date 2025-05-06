@@ -1,95 +1,104 @@
 import request from 'supertest';
 import express, { Request, Response } from 'express';
 import { Role } from '../../models/authorization.model';
+import { BadRequestError } from '../../errors/BadRequestError';
 
 // Define an interface for the request body
 interface CreateUserRequest extends Request {
   body: {
-    name: string;
+    username: string;
     email: string;
     password: string;
   };
 }
 
-describe('🧪 User Controller - handleCreateUser', () => {
-  it('should create a user with "utilisateur" role', async () => {
-    // Create an Express app just for this test
-    const app = express();
+describe('🧪 User Controller - handleCreateUser (isolated)', () => {
+  let app: express.Application;
+  let mockUserService: any;
+  let mockAuthService: any;
+  let mockAuthorizationService: any;
+  let mockEmailService: any;
+
+  beforeEach(() => {
+    app = express();
     app.use(express.json());
 
-    // Create spies for all dependencies
-    const mockUserService = {
-      isEmailUnique: jest.fn().mockResolvedValue(true),
-      createUser: jest.fn().mockResolvedValue({
-        id: '123',
-        name: 'TestUser',
-        email: 'test@example.com',
-      }),
+    // Create fresh mocks before each test
+    mockUserService = {
+      createUser: jest.fn(),
     };
-
-    const mockAuthService = {
-      generateToken: jest.fn().mockReturnValue('mock-token'),
+    mockAuthService = {
+      generateToken: jest.fn(),
     };
-
-    const mockAuthorizationService = {
-      setRole: jest.fn().mockResolvedValue(undefined),
+    mockAuthorizationService = {
+      setRole: jest.fn(),
     };
+    mockEmailService = {
+      sendWelcomeEmail: jest.fn(),
+    };
+  });
 
-    // Mock the handleCreateUser function with dependencies injected
-    const handleCreateUser =
-      (role: Role) => async (req: CreateUserRequest, res: Response) => {
-        const { name, email, password } = req.body; // Now TypeScript knows these properties exist
+  // Mock handleCreateUser function inside test
+  const createHandleCreateUser =
+    (role: Role) => async (req: CreateUserRequest, res: Response) => {
+      const { username, email, password } = req.body;
 
-        try {
-          const emailIsUnique = await mockUserService.isEmailUnique(email);
-          if (!emailIsUnique) {
-            res.status(400).json({ message: 'Email already used' });
-            return;
-          }
+      try {
+        const user = await mockUserService.createUser(
+          username,
+          email,
+          password
+        );
+        await mockAuthorizationService.setRole(user.id, role);
+        const token = mockAuthService.generateToken({ ...user, password });
+        await mockEmailService.sendWelcomeEmail(email, username);
 
-          const user = await mockUserService.createUser(name, email, password);
-          await mockAuthorizationService.setRole(user.id, role);
-          const token = mockAuthService.generateToken({ ...user, password });
-
-          res.status(201).json({
-            message: 'new account successfully created',
-            data: user,
-            role,
-            token,
-          });
-        } catch (error) {
+        res.status(201).json({
+          message: 'New account successfully created',
+          data: user,
+          role,
+          token,
+        });
+      } catch (error) {
+        if (error instanceof BadRequestError) {
+          res.status(400).json({ message: error.message });
+        } else {
           console.error('User creation failed:', error);
           res.status(500).json({ message: 'Internal server error' });
         }
-      };
+      }
+    };
 
-    // Set up the route with our mocked controller
-    app.post('/users', handleCreateUser('utilisateur'));
+  it('should create a user with "utilisateur" role successfully', async () => {
+    mockUserService.createUser.mockResolvedValue({
+      id: '123',
+      username: 'TestUser',
+      email: 'test@example.com',
+    });
+    mockAuthService.generateToken.mockReturnValue('mock-token');
+    mockAuthorizationService.setRole.mockResolvedValue(undefined);
+    mockEmailService.sendWelcomeEmail.mockResolvedValue(undefined);
 
-    // Test the route
+    app.post('/users', createHandleCreateUser('utilisateur'));
+
     const response = await request(app).post('/users').send({
-      name: 'TestUser',
+      username: 'TestUser',
       email: 'test@example.com',
       password: 'Password123!',
     });
 
-    // Verify the response
     expect(response.status).toBe(201);
     expect(response.body).toEqual({
-      message: 'new account successfully created',
+      message: 'New account successfully created',
       data: {
         id: '123',
-        name: 'TestUser',
+        username: 'TestUser',
         email: 'test@example.com',
       },
       role: 'utilisateur',
       token: 'mock-token',
     });
 
-    // Verify the mocks were called correctly
-    expect(mockUserService.isEmailUnique).toHaveBeenCalledWith(
-      'test@example.com'
-    );
     expect(mockUserService.createUser).toHaveBeenCalledWith(
       'TestUser',
       'test@example.com',
@@ -100,5 +109,47 @@ describe('🧪 User Controller - handleCreateUser', () => {
       'utilisateur'
     );
     expect(mockAuthService.generateToken).toHaveBeenCalled();
+    expect(mockEmailService.sendWelcomeEmail).toHaveBeenCalledWith(
+      'test@example.com',
+      'TestUser'
+    );
+  });
+
+  it('should return 400 if email already registered (BadRequestError)', async () => {
+    mockUserService.createUser.mockRejectedValue(
+      new BadRequestError('Email is already registered.')
+    );
+
+    app.post('/users', createHandleCreateUser('utilisateur'));
+
+    const response = await request(app).post('/users').send({
+      username: 'DuplicateUser',
+      email: 'duplicate@example.com',
+      password: 'Password123!',
+    });
+
+    expect(response.status).toBe(400);
+    expect(response.body).toEqual({
+      message: 'Email is already registered.',
+    });
+  });
+
+  it('should return 500 if unexpected error occurs', async () => {
+    mockUserService.createUser.mockRejectedValue(
+      new Error('Unexpected server error')
+    );
+
+    app.post('/users', createHandleCreateUser('utilisateur'));
+
+    const response = await request(app).post('/users').send({
+      username: 'ServerErrorUser',
+      email: 'error@example.com',
+      password: 'Password123!',
+    });
+
+    expect(response.status).toBe(500);
+    expect(response.body).toEqual({
+      message: 'Internal server error',
+    });
   });
 });

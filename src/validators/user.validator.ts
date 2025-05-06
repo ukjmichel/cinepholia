@@ -1,23 +1,22 @@
-// validators/userValidator.ts
-import { body } from 'express-validator';
+import { body, param, query } from 'express-validator';
 
 export const validateCreateUser = [
-  body('email').isEmail().withMessage('Email must be valid'),
+  body('email').isEmail().withMessage('Email must be valid').normalizeEmail(),
 
   body('username')
-    .matches(/^[A-Za-z0-9]+$/)
+    .matches(/^[A-Za-z0-9_-]+$/)
     .withMessage(
-      'Username must contain only letters and numbers (no spaces or special characters)'
+      'Username must only contain letters, numbers, hyphens or underscores'
     )
-    .isLength({ min: 3 })
-    .withMessage('Username must be at least 3 characters'),
+    .isLength({ min: 3, max: 30 })
+    .withMessage('Username must be between 3 and 30 characters'),
 
   body('password')
     .matches(
       /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?])[A-Za-z\d!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]{6,}$/
     )
     .withMessage(
-      'Password must contain at least one uppercase letter, one lowercase letter, one number, one special character, and no spaces'
+      'Password must include uppercase, lowercase, number, special character, and no spaces'
     ),
 ];
 
@@ -25,7 +24,7 @@ export const validateLogin = [
   body('email')
     .notEmpty()
     .withMessage('Email is required')
-    .bail() // stop if empty
+    .bail()
     .isEmail()
     .withMessage('Email must be valid')
     .normalizeEmail(),
@@ -33,7 +32,7 @@ export const validateLogin = [
   body('password')
     .notEmpty()
     .withMessage('Password is required')
-    .bail() // stop if empty
+    .bail()
     .custom((value) => {
       if (/\s/.test(value)) {
         throw new Error('Password must not contain spaces');
@@ -45,7 +44,6 @@ export const validateLogin = [
 export const validateUpdateUser = [
   body('email')
     .optional({ checkFalsy: true })
-    .trim()
     .isEmail()
     .withMessage('Email must be valid')
     .isLength({ max: 255 })
@@ -53,10 +51,9 @@ export const validateUpdateUser = [
 
   body('name')
     .optional({ checkFalsy: true })
-    .trim()
-    .matches(/^[A-Za-z0-9\s]+$/) // <-- allow letters, numbers, and spaces
+    .matches(/^[A-Za-z0-9\s_-]+$/)
     .withMessage(
-      'Name must contain only letters, numbers, and spaces (no special characters)'
+      'Name must contain only letters, numbers, spaces, hyphens or underscores'
     )
     .isLength({ min: 3, max: 30 })
     .withMessage('Name must be between 3 and 30 characters'),
@@ -65,13 +62,43 @@ export const validateUpdateUser = [
 export const validatePassword = [
   body('password')
     .optional({ checkFalsy: true })
-    .trim()
     .matches(
       /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?])[A-Za-z\d!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]{6,}$/
     )
     .withMessage(
-      'Password must contain at least one uppercase letter, one lowercase letter, one number, one special character, and no spaces'
+      'Password must include uppercase, lowercase, number, special character, and no spaces'
     )
     .isLength({ max: 100 })
     .withMessage('Password must be less than 100 characters'),
+];
+
+export const validatePublicSearch = [
+  query('searchTerm')
+    .notEmpty()
+    .withMessage('Search term is required')
+    .isString()
+    .withMessage('Search term must be a string')
+    .isLength({ min: 2, max: 100 })
+    .withMessage('Search term must be between 2 and 100 characters'),
+
+  query('limit')
+    .optional()
+    .isInt({ min: 1, max: 100 })
+    .withMessage('Limit must be a number between 1 and 100'),
+
+  query('offset')
+    .optional()
+    .isInt({ min: 0 })
+    .withMessage('Offset must be a non-negative number'),
+];
+
+/**
+ * Validate :id param in routes
+ */
+export const validatePublicIdParam = [
+  param('id')
+    .notEmpty()
+    .withMessage('ID parameter is required')
+    .isUUID()
+    .withMessage('ID must be a valid UUID'),
 ];

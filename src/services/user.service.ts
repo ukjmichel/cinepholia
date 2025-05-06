@@ -1,5 +1,7 @@
 import { UserInterface } from '../interfaces/user.interface';
 import { UserModel } from '../models/user.model';
+import { NotFoundError } from '../errors/NotFoundError';
+import { BadRequestError } from '../errors/BadRequestError';
 import { Op } from 'sequelize';
 
 /**
@@ -8,135 +10,132 @@ import { Op } from 'sequelize';
 export default class UserService {
   /**
    * Creates a new user in the database.
+   * Ensures the email is unique before creating.
    * Password hashing is automatically handled by Sequelize hooks.
    *
    * @param name - The user's full name.
    * @param email - The user's email address.
    * @param password - The user's plain password (will be hashed).
    * @returns The newly created user without the password field.
+   * @throws BadRequestError if the email is already registered.
    */
   async createUser(
     name: string,
     email: string,
     password: string
   ): Promise<Omit<UserInterface, 'password'>> {
-    const newUser = await UserModel.create({ name, email, password });
-
-    const userData = newUser.get({ plain: true }) as UserInterface;
-    const { password: _, ...userWithoutPassword } = userData;
-    return userWithoutPassword;
-  }
-
-  /**
-   * Checks if an email address is already registered.
-   *
-   * @param email - Email to check.
-   * @returns True if the email is unique, false if already taken.
-   */
-  async isEmailUnique(email: string): Promise<boolean> {
     const existingUser = await UserModel.findOne({ where: { email } });
-    return !existingUser;
+    if (existingUser) {
+      throw new BadRequestError('Email is already registered.');
+    }
+
+    const newUser = await UserModel.create({ name, email, password });
+    return this.excludePassword(newUser);
   }
 
   /**
    * Retrieves a user by their ID.
    *
    * @param id - The user's ID.
-   * @returns The user data without password, or null if not found.
+   * @returns The user without the password field.
+   * @throws NotFoundError if the user is not found.
    */
-  async getUserById(
-    id: string
-  ): Promise<Omit<UserInterface, 'password'> | null> {
+  async getUserById(id: string): Promise<Omit<UserInterface, 'password'>> {
     const user = await UserModel.findByPk(id);
-    if (!user) return null;
-
-    const userData = user.get({ plain: true }) as UserInterface;
-    const { password: _, ...userWithoutPassword } = userData;
-    return userWithoutPassword;
+    if (!user) {
+      throw new NotFoundError(`User with ID ${id} not found.`);
+    }
+    return this.excludePassword(user);
   }
 
   /**
-   * Retrieves a user by their email.
+   * Retrieves a user by their email address.
    *
    * @param email - The user's email address.
-   * @returns The user data without password, or null if not found.
+   * @returns The user without the password field.
+   * @throws NotFoundError if the user is not found.
    */
   async getUserByEmail(
     email: string
-  ): Promise<Omit<UserInterface, 'password'> | null> {
+  ): Promise<Omit<UserInterface, 'password'>> {
     const user = await UserModel.findOne({ where: { email } });
-    if (!user) return null;
-
-    const userData = user.get({ plain: true }) as UserInterface;
-    const { password: _, ...userWithoutPassword } = userData;
-    return userWithoutPassword;
+    if (!user) {
+      throw new NotFoundError(`User with email ${email} not found.`);
+    }
+    return this.excludePassword(user);
   }
 
   /**
    * Updates a user's name and/or email.
    *
    * @param id - The user's ID.
-   * @param userData - Fields to update (name and/or email).
-   * @returns The updated user without password, or null if not found.
+   * @param userData - Partial user data (name and/or email).
+   * @returns The updated user without the password field.
+   * @throws NotFoundError if the user is not found.
    */
   async updateUser(
     id: string,
-    userData: Partial<UserInterface>
-  ): Promise<Omit<UserInterface, 'password'> | null> {
-    const { password: _, ...updateData } = userData;
+    userData: Partial<Omit<UserInterface, 'id' | 'password'>>
+  ): Promise<Omit<UserInterface, 'password'>> {
+    const user = await UserModel.findByPk(id);
+    if (!user) {
+      throw new NotFoundError(`User with ID ${id} not found.`);
+    }
 
-    const [updatedCount] = await UserModel.update(updateData, {
-      where: { id },
-    });
-
-    if (updatedCount === 0) return null;
-
-    return this.getUserById(id);
+    await user.update(userData);
+    return this.excludePassword(user);
   }
 
   /**
-   * Changes the user's password.
-   * Verifies the current password before applying the new one.
+   * Changes a user's password after verifying the current password.
    *
    * @param id - The user's ID.
-   * @param currentPassword - The current password for verification.
+   * @param currentPassword - The user's current password for verification.
    * @param newPassword - The new password to set.
-   * @returns True if the password was changed, false otherwise.
+   * @returns Promise<void>
+   * @throws NotFoundError if the user is not found.
+   * @throws BadRequestError if the current password is incorrect.
    */
   async changePassword(
     id: string,
     currentPassword: string,
     newPassword: string
-  ): Promise<boolean> {
+  ): Promise<void> {
     const user = await UserModel.findByPk(id);
-    if (!user) return false;
+    if (!user) {
+      throw new NotFoundError(`User with ID ${id} not found.`);
+    }
 
     const isValid = await user.validatePassword(currentPassword);
-    if (!isValid) return false;
+    if (!isValid) {
+      throw new BadRequestError('Current password is incorrect.');
+    }
 
     user.password = newPassword;
     await user.save();
-    return true;
   }
 
   /**
    * Deletes a user by their ID.
    *
    * @param id - The user's ID.
-   * @returns True if the user was deleted, false otherwise.
+   * @returns Promise<void>
+   * @throws NotFoundError if the user is not found.
    */
-  async deleteUser(id: string): Promise<boolean> {
+  async deleteUser(id: string): Promise<void> {
     const deletedCount = await UserModel.destroy({ where: { id } });
-    return deletedCount > 0;
+    if (deletedCount === 0) {
+      throw new NotFoundError(`User with ID ${id} not found.`);
+    }
   }
 
   /**
-   * Searches users by name or email.
+   * Searches for users by name or email.
    *
-   * @param searchTerm - Text to search in name or email.
-   * @param limit - Maximum number of results to return.
-   * @param offset - How many results to skip (for pagination).
-   * @returns An array of users without password fields.
+   * @param searchTerm - The text to search for in names and emails.
+   * @param limit - Maximum number of results to return (default 10).
+   * @param offset - Number of results to skip (for pagination, default 0).
+   * @returns A list of users without password fields.
    */
   async searchUsers(
     searchTerm: string,
@@ -155,10 +154,21 @@ export default class UserService {
       attributes: { exclude: ['password'] },
     });
 
-    return users.map((user) => {
-      const userData = user.get({ plain: true }) as UserInterface;
-      const { password: _, ...userWithoutPassword } = userData;
-      return userWithoutPassword;
-    });
+    return users.map(
+      (user) => user.get({ plain: true }) as Omit<UserInterface, 'password'>
+    );
+  }
+
+  /**
+   * Helper method to exclude the password field from a user instance.
+   *
+   * @param user - The UserModel instance.
+   * @returns User data without the password field.
+   */
+  private excludePassword(user: UserModel): Omit<UserInterface, 'password'> {
+    const { password, ...userWithoutPassword } = user.get({
+      plain: true,
+    }) as UserInterface;
+    return userWithoutPassword;
   }
 }

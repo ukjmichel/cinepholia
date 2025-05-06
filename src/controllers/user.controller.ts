@@ -13,25 +13,17 @@ export const emailService = new EmailService();
 
 /**
  * Creates a new user with a specified role.
- * @param role - The role to assign to the user
- * @returns Express handler function
  */
 export const handleCreateUser =
   (role: Role) =>
   async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-    const { username, email, password } = req.body;
-
     try {
-      const emailIsUnique = await userService.isEmailUnique(email);
-      if (!emailIsUnique) {
-        res.status(400).json({ message: 'Email already used' });
-        return;
-      }
-
+      const { username, email, password } = req.body;
       const user = await userService.createUser(username, email, password);
-      authorizationService.setRole(user.id, role);
-      const token = authService.generateToken(user);
+      await authorizationService.setRole(user.id, role);
       await emailService.sendWelcomeEmail(email, username);
+
+      const token = authService.generateToken(user);
 
       res.status(201).json({
         message: 'New account successfully created',
@@ -40,196 +32,117 @@ export const handleCreateUser =
         token,
       });
     } catch (error) {
-      console.error('User creation failed:', error);
-      res.status(500).json({ message: 'Internal server error' });
+      next(error);
     }
   };
 
 /**
  * Retrieves a user by ID.
- * @param req - Express request
- * @param res - Express response
  */
-export async function handleGetUser(req: Request, res: Response): Promise<any> {
-  const { id } = req.params;
-
-  if (!id) {
-    return res.status(400).json({ message: 'User ID is required' });
-  }
-
+export const handleGetUser = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
   try {
-    const user = await userService.getUserById(id);
-
-    if (!user) {
-      return res.status(404).json({ message: 'User not found' });
-    }
-
-    return res.status(200).json(user);
+    const user = await userService.getUserById(req.params.id);
+    res.status(200).json({
+      message: 'User retrieved successfully',
+      data: user,
+    });
   } catch (error) {
-    console.error('Error fetching user:', error);
-    return res.status(500).json({ message: 'Internal server error' });
+    next(error);
   }
-}
+};
 
 /**
  * Updates a user's name and/or email.
- * Returns a new JWT token after successful update.
- * @param req - Express request
- * @param res - Express response
  */
-export async function handleUpdateUser(
+export const handleUpdateUser = async (
   req: Request,
-  res: Response
-): Promise<any> {
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
   const { id } = req.params;
   const { name, email } = req.body;
 
-  if (!id) {
-    return res.status(400).json({ message: 'User ID is required' });
-  }
-
   if (!name && !email) {
-    return res
+    res
       .status(400)
       .json({ message: 'At least one field to update is required' });
+    return;
   }
 
   try {
-    const existingUser = await userService.getUserById(id);
-    if (!existingUser) {
-      return res.status(404).json({ message: 'User not found' });
-    }
-
-    const isSameName = name ? name === existingUser.name : true;
-    const isSameEmail = email ? email === existingUser.email : true;
-
-    if (isSameName && isSameEmail) {
-      return res
-        .status(400)
-        .json({ message: 'No changes detected in provided data' });
-    }
-
-    if (email && email !== existingUser.email) {
-      const emailIsUnique = await userService.isEmailUnique(email);
-      if (!emailIsUnique) {
-        return res.status(400).json({ message: 'Email already exists' });
-      }
-    }
-
     const updatedUser = await userService.updateUser(id, { name, email });
-    if (!updatedUser) {
-      return res.status(404).json({ message: 'User not found after update' });
-    }
+    const token = authService.generateToken(updatedUser);
 
-    const freshUser = await userService.getUserById(id);
-    if (!freshUser) {
-      return res.status(500).json({ message: 'Failed to fetch updated user' });
-    }
-
-    const newToken = authService.generateToken(freshUser);
-
-    return res.status(200).json({
-      user: freshUser,
+    res.status(200).json({
       message: 'User updated successfully',
-      token: newToken,
+      user: updatedUser,
+      token,
     });
   } catch (error) {
-    console.error('Error updating user:', error);
-    return res.status(500).json({ message: 'Internal server error' });
+    next(error);
   }
-}
+};
 
 /**
  * Changes a user's password.
- * Returns a new JWT token after successful password change.
- * @param req - Express request
- * @param res - Express response
  */
-export async function handleChangePassword(
+export const handleChangePassword = async (
   req: Request,
-  res: Response
-): Promise<any> {
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
   const { id } = req.params;
   const { currentPassword, newPassword } = req.body;
 
-  if (!id) {
-    return res.status(400).json({ message: 'User ID is required' });
-  }
-
   if (!currentPassword || !newPassword) {
-    return res
+    res
       .status(400)
       .json({ message: 'Current password and new password are required' });
+    return;
   }
 
   try {
-    const success = await userService.changePassword(
-      id,
-      currentPassword,
-      newPassword
-    );
-
-    if (!success) {
-      return res
-        .status(400)
-        .json({ message: 'Invalid current password or user not found' });
-    }
-
+    await userService.changePassword(id, currentPassword, newPassword);
     const updatedUser = await userService.getUserById(id);
-    if (!updatedUser) {
-      return res.status(500).json({ message: 'Failed to generate token' });
-    }
+    const token = authService.generateToken(updatedUser);
 
-    const newToken = authService.generateToken(updatedUser);
-
-    return res.status(200).json({
+    res.status(200).json({
       message: 'Password changed successfully',
-      token: newToken,
+      token,
     });
   } catch (error) {
-    console.error('Error changing password:', error);
-    return res.status(500).json({ message: 'Internal server error' });
+    next(error);
   }
-}
+};
 
 /**
  * Deletes a user by ID.
- * @param req - Express request
- * @param res - Express response
  */
-export async function handleDeleteUser(
+export const handleDeleteUser = async (
   req: Request,
-  res: Response
-): Promise<any> {
-  const { id } = req.params;
-
-  if (!id) {
-    return res.status(400).json({ message: 'User ID is required' });
-  }
-
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
   try {
-    const deleted = await userService.deleteUser(id);
-
-    if (!deleted) {
-      return res.status(404).json({ message: 'User not found' });
-    }
-
-    return res.status(200).json({ message: 'User deleted successfully' });
+    await userService.deleteUser(req.params.id);
+    res.status(204).send();
   } catch (error) {
-    console.error('Error deleting user:', error);
-    return res.status(500).json({ message: 'Internal server error' });
+    next(error);
   }
-}
+};
 
 /**
- * Searches users by name or email with optional pagination.
- * @param req - Express request
- * @param res - Express response
+ * Searches users by name or email.
  */
-export async function handleSearchUsers(
+export const handleSearchUsers = async (
   req: Request,
-  res: Response
-): Promise<any> {
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
   const { searchTerm } = req.query;
   const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : 10;
   const offset = req.query.offset
@@ -237,13 +150,15 @@ export async function handleSearchUsers(
     : 0;
 
   if (!searchTerm || typeof searchTerm !== 'string') {
-    return res.status(400).json({ message: 'Search term is required' });
+    res.status(400).json({ message: 'Search term is required' });
+    return;
   }
 
   try {
     const users = await userService.searchUsers(searchTerm, limit, offset);
 
-    return res.status(200).json({
+    res.status(200).json({
+      message: 'Users retrieved successfully',
       users,
       pagination: {
         limit,
@@ -252,7 +167,6 @@ export async function handleSearchUsers(
       },
     });
   } catch (error) {
-    console.error('Error searching users:', error);
-    return res.status(500).json({ message: 'Internal server error' });
+    next(error);
   }
-}
+};

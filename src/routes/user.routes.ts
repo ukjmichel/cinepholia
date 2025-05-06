@@ -30,7 +30,7 @@ const userRouter = Router();
  * /users:
  *   post:
  *     summary: Create a new user
- *     description: Creates a new user with name, email, and password.
+ *     description: Creates a new user with username, email, and password.
  *     tags: [Users]
  *     requestBody:
  *       required: true
@@ -39,13 +39,13 @@ const userRouter = Router();
  *           schema:
  *             type: object
  *             required:
- *               - name
+ *               - username
  *               - email
  *               - password
  *             properties:
- *               name:
+ *               username:
  *                 type: string
- *                 example: Alice
+ *                 example: Alice123
  *               email:
  *                 type: string
  *                 example: alice@example.com
@@ -83,13 +83,13 @@ userRouter.post(
  *           schema:
  *             type: object
  *             required:
- *               - name
+ *               - username
  *               - email
  *               - password
  *             properties:
- *               name:
+ *               username:
  *                 type: string
- *                 example: Bob
+ *                 example: BobTheAdmin
  *               email:
  *                 type: string
  *                 example: bob@example.com
@@ -120,7 +120,7 @@ userRouter.post(
  * /users/search:
  *   get:
  *     summary: Search users
- *     description: Search for users by name or email (requires employee permission).
+ *     description: Search for users by username or email (requires employee permission).
  *     tags: [Users]
  *     security:
  *       - bearerAuth: []
@@ -190,7 +190,7 @@ userRouter.get(
  * /users/{id}:
  *   put:
  *     summary: Update user information
- *     description: Update user name or email (self or admin only).
+ *     description: Update user username or email (self or admin only).
  *     tags: [Users]
  *     security:
  *       - bearerAuth: []
@@ -207,7 +207,7 @@ userRouter.get(
  *           schema:
  *             type: object
  *             properties:
- *               name:
+ *               username:
  *                 type: string
  *               email:
  *                 type: string
@@ -257,10 +257,8 @@ userRouter.put(
  *             properties:
  *               currentPassword:
  *                 type: string
- *                 example: OldPassword123!
  *               newPassword:
  *                 type: string
- *                 example: NewPassword123!
  *     responses:
  *       200:
  *         description: Password changed successfully
