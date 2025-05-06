@@ -9,18 +9,17 @@ import {
 import bcrypt from 'bcrypt';
 import { Optional } from 'sequelize';
 
-export interface UserAttributes {
+interface UserAttributes {
   id: string;
   name: string;
   email: string;
   password: string;
 }
 
-export interface UserCreationAttributes
-  extends Optional<UserAttributes, 'id'> {}
+interface UserCreationAttributes extends Optional<UserAttributes, 'id'> {}
 
 @Table({ tableName: 'users', timestamps: true })
-export class UserModel
+class UserModel
   extends Model<UserAttributes, UserCreationAttributes>
   implements UserAttributes
 {
@@ -34,7 +33,6 @@ export class UserModel
 
   @Column({
     type: DataType.STRING,
-    allowNull: false,
     unique: true,
     validate: {
       len: {
@@ -51,7 +49,6 @@ export class UserModel
 
   @Column({
     type: DataType.STRING,
-    allowNull: false,
     unique: true,
     validate: {
       isEmail: true,
@@ -75,3 +72,5 @@ export class UserModel
     }
   }
 }
+
+export { UserModel };

@@ -60,17 +60,17 @@ describe('BookingService', () => {
 
     const movie = await MovieModel.create({
       movieId: 'movie-uuid',
-      title: 'Test Movie', // 🛠️ corrected here: title instead of name
+      title: 'Test Movie',
       description: 'A mind-bending thriller',
-      ageRating: 'PG-13', // 🛠️ corrected: age -> ageRating
+      ageRating: 'PG-13',
       genre: 'Sci-Fi',
-      releaseDate: new Date(), // 🛠️ corrected: date -> releaseDate
-      director: 'Christopher Nolan', // 🛠️ added required field: director
-      durationTime: "02:30:00", // 🛠️ added required field: durationMinutes
+      releaseDate: new Date(),
+      director: 'Christopher Nolan',
+      durationTime: '02:30:00',
     });
 
     const theater = await MovieTheaterModel.create({
-      theaterId: 'theater-uuid',
+      theaterId: 'theater123',
       address: '123 Test St',
       postalCode: '12345',
       city: 'Test City',
@@ -94,7 +94,7 @@ describe('BookingService', () => {
       theaterId: theater.theaterId,
       hallId: hall.hallId,
       startTime: new Date(),
-      durationTime: "02:00:00",
+      durationTime: '02:00:00',
     });
 
     return { user, screening };
@@ -107,7 +107,6 @@ describe('BookingService', () => {
       bookingId: 'booking123',
       userId: user.id,
       screeningId: screening.screeningId,
-      bookingDate: new Date(),
       seatsNumber: 2,
       status: 'pending',
     });
@@ -124,7 +123,6 @@ describe('BookingService', () => {
       bookingId: 'booking456',
       userId: user.id,
       screeningId: screening.screeningId,
-      bookingDate: new Date(),
       seatsNumber: 2,
       status: 'pending',
     });
@@ -148,7 +146,6 @@ describe('BookingService', () => {
         bookingId: 'booking1',
         userId: user.id,
         screeningId: screening.screeningId,
-        bookingDate: new Date(),
         seatsNumber: 2,
         status: 'pending',
       },
@@ -156,7 +153,6 @@ describe('BookingService', () => {
         bookingId: 'booking2',
         userId: user.id,
         screeningId: screening.screeningId,
-        bookingDate: new Date(),
         seatsNumber: 1,
         status: 'pending',
       },
@@ -174,7 +170,6 @@ describe('BookingService', () => {
       bookingId: 'bookingToUpdate',
       userId: user.id,
       screeningId: screening.screeningId,
-      bookingDate: new Date(),
       seatsNumber: 2,
       status: 'pending',
     });
@@ -202,23 +197,20 @@ describe('BookingService', () => {
       bookingId: 'bookingToUse',
       userId: user.id,
       screeningId: screening.screeningId,
-      bookingDate: new Date(),
       seatsNumber: 1,
       status: 'pending',
     });
 
-    const updatedBooking = await bookingService.markBookingAsUsed(
-      'bookingToUse'
-    );
+    const updatedBooking =
+      await bookingService.markBookingAsUsed('bookingToUse');
 
     expect(updatedBooking).toBeDefined();
     expect(updatedBooking?.status).toBe('used');
   });
 
   it('should return null when marking non-existing booking as used', async () => {
-    const updatedBooking = await bookingService.markBookingAsUsed(
-      'nonexistent'
-    );
+    const updatedBooking =
+      await bookingService.markBookingAsUsed('nonexistent');
     expect(updatedBooking).toBeNull();
   });
 
@@ -229,14 +221,12 @@ describe('BookingService', () => {
       bookingId: 'bookingToCancel',
       userId: user.id,
       screeningId: screening.screeningId,
-      bookingDate: new Date(),
       seatsNumber: 1,
       status: 'pending',
     });
 
-    const updatedBooking = await bookingService.cancelBooking(
-      'bookingToCancel'
-    );
+    const updatedBooking =
+      await bookingService.cancelBooking('bookingToCancel');
 
     expect(updatedBooking).toBeDefined();
     expect(updatedBooking?.status).toBe('canceled');
@@ -254,7 +244,6 @@ describe('BookingService', () => {
       bookingId: 'bookingToDelete',
       userId: user.id,
       screeningId: screening.screeningId,
-      bookingDate: new Date(),
       seatsNumber: 3,
       status: 'pending',
     });
@@ -276,7 +265,6 @@ describe('BookingService', () => {
         bookingId: 'user-booking1',
         userId: user.id,
         screeningId: screening.screeningId,
-        bookingDate: new Date(),
         seatsNumber: 2,
         status: 'pending',
       },
@@ -284,7 +272,6 @@ describe('BookingService', () => {
         bookingId: 'user-booking2',
         userId: user.id,
         screeningId: screening.screeningId,
-        bookingDate: new Date(),
         seatsNumber: 1,
         status: 'pending',
       },

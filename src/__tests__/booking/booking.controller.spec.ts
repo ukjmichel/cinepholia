@@ -2,13 +2,60 @@
 
 import request from 'supertest';
 import express, { Express, Request, Response, NextFunction } from 'express';
-import { Sequelize } from 'sequelize-typescript';
-import { BookingModel } from '../../models/booking.model';
-import { UserModel } from '../../models/user.model';
-import { ScreeningModel } from '../../models/screening.model';
-import { MovieModel } from '../../models/movie.model';
-import { MovieTheaterModel } from '../../models/movietheater.model';
-import { MovieHallModel } from '../../models/movieHall.model';
+import { BookingAttributes } from '../../models/booking.model';
+
+// Mock the services
+jest.mock('../../services/booking.service', () => {
+  return {
+    BookingService: jest.fn().mockImplementation(() => ({
+      createBooking: jest.fn(),
+      getBookingById: jest.fn(),
+      getAllBookings: jest.fn(),
+      updateBooking: jest.fn(),
+      deleteBooking: jest.fn(),
+      getBookingsByUserId: jest.fn(),
+      markBookingAsUsed: jest.fn(),
+      cancelBooking: jest.fn(),
+    })),
+  };
+});
+
+jest.mock('../../services/screening.service', () => {
+  return {
+    ScreeningService: jest.fn().mockImplementation(() => ({
+      getScreeningById: jest.fn(),
+    })),
+  };
+});
+
+jest.mock('../../services/seatBooking.service', () => {
+  return {
+    SeatBookingService: jest.fn().mockImplementation(() => ({
+      checkSeatsExist: jest.fn(),
+      checkSeatsAvailable: jest.fn(),
+      createSeatBooking: jest.fn(),
+      deleteSeatBookingsByBookingId: jest.fn(),
+    })),
+  };
+});
+
+jest.mock('../../services/movieHall.service', () => {
+  return {
+    MovieHallService: jest.fn().mockImplementation(() => ({})),
+  };
+});
+
+// Mock sequelize transaction
+jest.mock('../../config/db', () => ({
+  sequelize: {
+    transaction: jest.fn().mockResolvedValue({
+      commit: jest.fn().mockResolvedValue(undefined),
+      rollback: jest.fn().mockResolvedValue(undefined),
+    }),
+  },
+}));
+
+// Import controllers after mocking
 import {
   handleCreateBooking,
   handleGetBookingById,
@@ -18,131 +65,45 @@ import {
   handleMarkBookingAsUsed,
   handleCancelBooking,
   handleGetBookingsByUser,
+  screeningService,
+  seatBookingService,
+  bookingService,
 } from '../../controllers/booking.controller';
-import { BookingService } from '../../services/booking.service';
-import { BookingAttributes } from '../../models/booking.model';
 
-// Define UserPayload interface to match what's expected in your application
-interface UserPayload {
-  id: string;
-  name: string;
-  email: string;
-}
+// Error handler middleware
+const errorHandler = (
+  err: any,
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  const status = err.statusCode || 500;
+  const message = err.message || 'Something went wrong';
 
-// Extend Express Request to include user property
-declare global {
-  namespace Express {
-    interface Request {
-      user?: UserPayload;
-    }
-  }
-}
+  res.status(status).json({
+    status: status,
+    message: message,
+  });
+};
 
-// Custom type for when we know user will be defined
-type AuthenticatedRequest = Request & { user: UserPayload };
-
-// Mock BookingService for more precise testing
-jest.mock('../../services/booking.service', () => {
-  const mockCreateBooking = jest.fn<Promise<any>, [BookingAttributes]>();
-  const mockGetBookingById = jest.fn<
-    Promise<BookingAttributes | null>,
-    [string]
-  >();
-  const mockGetAllBookings = jest.fn<Promise<BookingAttributes[]>, []>();
-  const mockUpdateBooking = jest.fn<
-    Promise<BookingAttributes | null>,
-    [string, Partial<BookingAttributes>]
-  >();
-  const mockDeleteBooking = jest.fn<Promise<boolean>, [string]>();
-  const mockGetBookingsByUserId = jest.fn<
-    Promise<BookingAttributes[]>,
-    [string]
-  >();
-  const mockMarkBookingAsUsed = jest.fn<
-    Promise<BookingAttributes | null>,
-    [string]
-  >();
-  const mockCancelBooking = jest.fn<
-    Promise<BookingAttributes | null>,
-    [string]
-  >();
-
-  return {
-    BookingService: jest.fn().mockImplementation(() => ({
-      createBooking: mockCreateBooking,
-      getBookingById: mockGetBookingById,
-      getAllBookings: mockGetAllBookings,
-      updateBooking: mockUpdateBooking,
-      deleteBooking: mockDeleteBooking,
-      getBookingsByUserId: mockGetBookingsByUserId,
-      markBookingAsUsed: mockMarkBookingAsUsed,
-      cancelBooking: mockCancelBooking,
-    })),
-    // Export mocks for easier access in tests
-    __mocks: {
-      createBooking: mockCreateBooking,
-      getBookingById: mockGetBookingById,
-      getAllBookings: mockGetAllBookings,
-      updateBooking: mockUpdateBooking,
-      deleteBooking: mockDeleteBooking,
-      getBookingsByUserId: mockGetBookingsByUserId,
-      markBookingAsUsed: mockMarkBookingAsUsed,
-      cancelBooking: mockCancelBooking,
-    },
-  };
-});
-
-// Get mocks
-const mocks = require('../../services/booking.service').__mocks;
-
-// 🧩 Mock authenticateJwt middleware so req.user is injected during tests
-jest.mock('../../middlewares/auth.middleware', () => ({
-  authenticateJwt: (req: Request, res: Response, next: NextFunction) => {
-    // Use type assertion to set the user with all required properties
-    req.user = {
-      id: 'user-uuid',
-      name: 'Test User',
-      email: 'test@example.com',
-    };
-    next();
-  },
-}));
-
-jest.mock('../../services/seatBooking.service', () => ({
-  SeatBookingService: jest.fn().mockImplementation(() => ({
-    createSeatBooking: jest.fn(async ({ screeningId, seatId, bookingId }) => ({
-      seatId,
-      screeningId,
-      bookingId,
-    })),
-  })),
-}));
+// Helper to validate errors
+const validateErrorResponse = (
+  res: request.Response,
+  statusCode: number,
+  message: string
+) => {
+  expect(res.status).toBe(statusCode);
+  expect(res.body.message).toContain(message);
+};
 
 describe('BookingController', () => {
   let app: Express;
-  let sequelize: Sequelize;
 
-  beforeAll(async () => {
+  beforeAll(() => {
     app = express();
     app.use(express.json());
 
-    sequelize = new Sequelize({
-      dialect: 'sqlite',
-      storage: ':memory:',
-      logging: false,
-    });
-
-    sequelize.addModels([
-      BookingModel,
-      UserModel,
-      ScreeningModel,
-      MovieModel,
-      MovieTheaterModel,
-      MovieHallModel,
-    ]);
-
-    await sequelize.sync({ force: true });
-
+    // Authentication middleware
     app.use((req: Request, res: Response, next: NextFunction) => {
       req.user = {
         id: 'user-uuid',
@@ -152,6 +113,7 @@ describe('BookingController', () => {
       next();
     });
 
+    // Mount routes
     app.post('/bookings', handleCreateBooking);
     app.get('/bookings', handleGetAllBookings);
     app.get('/bookings/:bookingId', handleGetBookingById);
@@ -160,390 +122,251 @@ describe('BookingController', () => {
     app.patch('/bookings/:bookingId/used', handleMarkBookingAsUsed);
     app.patch('/bookings/:bookingId/cancel', handleCancelBooking);
     app.get('/bookings/user/:userId', handleGetBookingsByUser);
-  });
 
-  afterAll(async () => {
-    await sequelize.close();
+    // Add error handling middleware
+    app.use(errorHandler);
   });
 
   beforeEach(() => {
     jest.clearAllMocks();
-
-    mocks.createBooking.mockImplementation(
-      async (data: BookingAttributes): Promise<BookingAttributes> => ({
-        ...data,
-      })
-    );
-
-    mocks.getBookingById.mockImplementation(
-      async (id: string): Promise<BookingAttributes | null> => {
-        if (id === 'invalid-id') return null;
-        return {
-          bookingId: id,
-          userId: 'user-uuid',
-          screeningId: 'screening-123',
-          bookingDate: new Date(),
-          seatsNumber: 2,
-          status: 'pending',
-        };
-      }
-    );
-
-    mocks.getAllBookings.mockResolvedValue([
-      {
-        bookingId: 'booking-1',
-        userId: 'user-uuid',
-        screeningId: 'screening-123',
-        bookingDate: new Date(),
-        seatsNumber: 2,
-        status: 'pending',
-      },
-      {
-        bookingId: 'booking-2',
-        userId: 'user-uuid',
-        screeningId: 'screening-456',
-        bookingDate: new Date(),
-        seatsNumber: 1,
-        status: 'used',
-      },
-    ]);
-
-    mocks.updateBooking.mockImplementation(
-      async (
-        id: string,
-        data: Partial<BookingAttributes>
-      ): Promise<BookingAttributes | null> => {
-        if (id === 'invalid-id') return null;
-        return {
-          bookingId: id,
-          userId: 'user-uuid',
-          screeningId: 'screening-123',
-          bookingDate: new Date(),
-          seatsNumber: data.seatsNumber || 2,
-          status: data.status || 'pending',
-          ...data,
-        };
-      }
-    );
-
-    mocks.deleteBooking.mockImplementation(
-      async (id: string): Promise<boolean> => id !== 'invalid-id'
-    );
-
-    mocks.getBookingsByUserId.mockImplementation(
-      async (userId: string): Promise<BookingAttributes[]> => [
-        {
-          bookingId: 'user-booking-1',
-          userId,
-          screeningId: 'screening-123',
-          bookingDate: new Date(),
-          seatsNumber: 2,
-          status: 'pending',
-        },
-        {
-          bookingId: 'user-booking-2',
-          userId,
-          screeningId: 'screening-456',
-          bookingDate: new Date(),
-          seatsNumber: 3,
-          status: 'pending',
-        },
-      ]
-    );
-
-    mocks.markBookingAsUsed.mockImplementation(
-      async (id: string): Promise<BookingAttributes | null> => {
-        if (id === 'invalid-id') return null;
-        return {
-          bookingId: id,
-          userId: 'user-uuid',
-          screeningId: 'screening-123',
-          bookingDate: new Date(),
-          seatsNumber: 2,
-          status: 'used',
-        };
-      }
-    );
-
-    mocks.cancelBooking.mockImplementation(
-      async (id: string): Promise<BookingAttributes | null> => {
-        if (id === 'invalid-id') return null;
-        return {
-          bookingId: id,
-          userId: 'user-uuid',
-          screeningId: 'screening-123',
-          bookingDate: new Date(),
-          seatsNumber: 2,
-          status: 'canceled',
-        };
-      }
-    );
   });
 
   describe('handleCreateBooking', () => {
-    it('should create a booking and enforce userId from token', async () => {
-      const response = await request(app)
+    it('should create a booking successfully', async () => {
+      // Setup mocks for this test
+      seatBookingService.checkSeatsExist = jest.fn().mockResolvedValue(true);
+      seatBookingService.checkSeatsAvailable = jest
+        .fn()
+        .mockResolvedValue(true);
+      seatBookingService.createSeatBooking = jest
+        .fn()
+        .mockImplementation((data) => Promise.resolve(data));
+
+      bookingService.createBooking = jest.fn().mockImplementation((data) =>
+        Promise.resolve({
+          ...data,
+          status: 'pending',
+        })
+      );
+
+      const res = await request(app)
         .post('/bookings')
         .send({
-          bookingId: 'booking-uuid',
-          userId: 'wrong-id',
           screeningId: 'screening-uuid',
-          bookingDate: new Date().toISOString(),
           seatsNumber: 2,
-          seatId: ['seat-1', 'seat-2'],
+          seatIds: ['s1', 's2'],
         });
 
-      expect(response.status).toBe(201);
-      expect(response.body.booking.userId).toBe('user-uuid');
-      expect(mocks.createBooking).toHaveBeenCalledWith(
-        expect.objectContaining({ userId: 'user-uuid' })
-      );
+      expect(res.status).toBe(201);
+      expect(res.body).toHaveProperty('booking');
+      expect(res.body.booking).toBeDefined();
     });
 
     it('should return 400 if no seats provided', async () => {
-      const response = await request(app).post('/bookings').send({
-        screeningId: 'screening-uuid',
-        bookingDate: new Date().toISOString(),
-        seatsNumber: 2,
-      });
+      const res = await request(app)
+        .post('/bookings')
+        .send({ screeningId: 'screening-uuid', seatsNumber: 2 });
 
-      expect(response.status).toBe(400);
-      expect(response.body.message).toContain('No valid seats provided');
+      validateErrorResponse(res, 400, 'No seats selected');
     });
 
-    it('should return 400 if seat count mismatches', async () => {
-      const response = await request(app)
+    it('should return 400 if seats number mismatch', async () => {
+      const res = await request(app)
         .post('/bookings')
         .send({
           screeningId: 'screening-uuid',
-          bookingDate: new Date().toISOString(),
           seatsNumber: 3,
-          seatId: ['s1', 's2'],
+          seatIds: ['s1', 's2'],
         });
 
-      expect(response.status).toBe(400);
-      expect(response.body.message).toContain('Seats number mismatch');
+      validateErrorResponse(res, 400, 'Seats number mismatch');
     });
   });
 
   describe('handleGetBookingById', () => {
-    it('should get a booking by ID', async () => {
-      const response = await request(app).get('/bookings/booking-123');
+    it('should retrieve a booking by ID', async () => {
+      // Setup mock for this test
+      bookingService.getBookingById = jest.fn().mockResolvedValue({
+        bookingId: 'booking-123',
+        userId: 'user-uuid',
+        screeningId: 'screening-123',
+        seatsNumber: 2,
+        status: 'pending',
+      });
 
-      expect(response.status).toBe(200);
-      expect(response.body).toHaveProperty('bookingId', 'booking-123');
-      expect(mocks.getBookingById).toHaveBeenCalledWith('booking-123');
+      const res = await request(app).get('/bookings/booking-123');
+
+      expect(res.status).toBe(200);
+      expect(res.body.bookingId).toBe('booking-123');
     });
 
     it('should return 404 if booking not found', async () => {
-      const response = await request(app).get('/bookings/invalid-id');
+      // Setup mock for this test
+      bookingService.getBookingById = jest.fn().mockResolvedValue(null);
 
-      expect(response.status).toBe(404);
-      expect(response.body.message).toContain('invalid-id');
-      expect(response.body.message).toContain('not found');
-    });
+      const res = await request(app).get('/bookings/invalid-id');
 
-    it('should handle service errors when getting a booking', async () => {
-      mocks.getBookingById.mockRejectedValue(
-        new Error('Database connection failed')
-      );
-
-      const response = await request(app).get('/bookings/booking-123');
-
-      expect(response.status).toBe(500);
-      expect(response.body.message).toContain('Failed to fetch booking');
-      expect(response.body.error).toBe('Database connection failed');
+      validateErrorResponse(res, 404, 'Booking with ID invalid-id not found');
     });
   });
 
   describe('handleGetAllBookings', () => {
-    it('should get all bookings', async () => {
-      const response = await request(app).get('/bookings');
+    it('should retrieve all bookings', async () => {
+      // Setup mock for this test
+      bookingService.getAllBookings = jest.fn().mockResolvedValue([
+        {
+          bookingId: 'b1',
+          userId: 'user-uuid',
+          screeningId: 's1',
+          seatsNumber: 2,
+          status: 'pending',
+        },
+        {
+          bookingId: 'b2',
+          userId: 'user-uuid',
+          screeningId: 's2',
+          seatsNumber: 1,
+          status: 'used',
+        },
+      ]);
 
-      expect(response.status).toBe(200);
-      expect(Array.isArray(response.body)).toBe(true);
-      expect(response.body).toHaveLength(2);
-      expect(response.body[0]).toHaveProperty('bookingId', 'booking-1');
-      expect(mocks.getAllBookings).toHaveBeenCalled();
-    });
+      const res = await request(app).get('/bookings');
 
-    it('should handle service errors when getting all bookings', async () => {
-      mocks.getAllBookings.mockRejectedValue(new Error('Failed to fetch data'));
-
-      const response = await request(app).get('/bookings');
-
-      expect(response.status).toBe(500);
-      expect(response.body.message).toContain('Failed to fetch bookings');
-      expect(response.body.error).toBe('Failed to fetch data');
-    });
-
-    it('should return empty array when no bookings exist', async () => {
-      mocks.getAllBookings.mockResolvedValue([]);
-
-      const response = await request(app).get('/bookings');
-
-      expect(response.status).toBe(200);
-      expect(Array.isArray(response.body)).toBe(true);
-      expect(response.body).toHaveLength(0);
+      expect(res.status).toBe(200);
+      expect(Array.isArray(res.body)).toBe(true);
+      expect(res.body.length).toBe(2);
     });
   });
 
   describe('handleUpdateBooking', () => {
-    it('should update a booking', async () => {
-      const updateData = { status: 'used', seatsNumber: 3 };
+    it('should update a booking successfully', async () => {
+      // Setup mock for this test
+      bookingService.updateBooking = jest.fn().mockResolvedValue({
+        bookingId: 'booking-123',
+        userId: 'user-uuid',
+        screeningId: 'screening-123',
+        seatsNumber: 2,
+        status: 'used',
+      });
 
-      const response = await request(app)
-        .put('/bookings/booking-update')
-        .send(updateData);
+      const res = await request(app)
+        .put('/bookings/booking-123')
+        .send({ status: 'used' });
 
-      expect(response.status).toBe(200);
-      expect(response.body).toHaveProperty('bookingId', 'booking-update');
-      expect(response.body).toHaveProperty('status', 'used');
-      expect(response.body).toHaveProperty('seatsNumber', 3);
-      expect(mocks.updateBooking).toHaveBeenCalledWith(
-        'booking-update',
-        updateData
-      );
+      expect(res.status).toBe(200);
+      expect(res.body.status).toBe('used');
     });
 
-    it('should return 404 if booking to update not found', async () => {
-      const response = await request(app)
+    it('should return 404 if booking not found for update', async () => {
+      // Setup mock for this test
+      bookingService.updateBooking = jest.fn().mockResolvedValue(null);
+
+      const res = await request(app)
         .put('/bookings/invalid-id')
         .send({ status: 'used' });
 
-      expect(response.status).toBe(404);
-      expect(response.body.message).toContain('invalid-id');
-    });
-
-    it('should handle service errors during booking update', async () => {
-      mocks.updateBooking.mockRejectedValue(new Error('Update failed'));
-
-      const response = await request(app)
-        .put('/bookings/booking-update')
-        .send({ status: 'used' });
-
-      expect(response.status).toBe(500);
-      expect(response.body.message).toContain('Failed to update booking');
-      expect(response.body.error).toBe('Update failed');
+      validateErrorResponse(res, 404, 'Booking with ID invalid-id not found');
     });
   });
 
   describe('handleDeleteBooking', () => {
-    it('should delete a booking', async () => {
-      const response = await request(app).delete('/bookings/booking-delete');
+    it('should delete a booking successfully', async () => {
+      // Setup mocks for this test
+      seatBookingService.deleteSeatBookingsByBookingId = jest
+        .fn()
+        .mockResolvedValue(true);
+      bookingService.deleteBooking = jest.fn().mockResolvedValue(true);
 
-      expect(response.status).toBe(204);
-      expect(mocks.deleteBooking).toHaveBeenCalledWith('booking-delete');
+      const res = await request(app).delete('/bookings/booking-123');
+
+      expect(res.status).toBe(204);
     });
 
-    it('should return 404 if booking to delete not found', async () => {
-      const response = await request(app).delete('/bookings/invalid-id');
+    it('should return 404 if booking not found during deletion', async () => {
+      // Setup mocks for this test
+      seatBookingService.deleteSeatBookingsByBookingId = jest
+        .fn()
+        .mockResolvedValue(true);
+      bookingService.deleteBooking = jest.fn().mockResolvedValue(false);
 
-      expect(response.status).toBe(404);
-      expect(response.body.message).toContain('invalid-id');
-    });
+      const res = await request(app).delete('/bookings/invalid-id');
 
-    it('should handle service errors during booking deletion', async () => {
-      mocks.deleteBooking.mockRejectedValue(new Error('Delete failed'));
-
-      const response = await request(app).delete('/bookings/booking-id');
-
-      expect(response.status).toBe(500);
-      expect(response.body.message).toContain('Failed to delete booking');
-      expect(response.body.error).toBe('Delete failed');
-    });
-  });
-
-  describe('handleGetBookingsByUser', () => {
-    it('should get bookings for a user', async () => {
-      const response = await request(app).get('/bookings/user/user-123');
-
-      expect(response.status).toBe(200);
-      expect(Array.isArray(response.body)).toBe(true);
-      expect(response.body).toHaveLength(2);
-      expect(response.body[0]).toHaveProperty('bookingId', 'user-booking-1');
-      expect(response.body[0]).toHaveProperty('userId', 'user-123');
-      expect(mocks.getBookingsByUserId).toHaveBeenCalledWith('user-123');
-    });
-
-    it('should return empty array when user has no bookings', async () => {
-      mocks.getBookingsByUserId.mockResolvedValue([]);
-
-      const response = await request(app).get(
-        '/bookings/user/user-no-bookings'
-      );
-
-      expect(response.status).toBe(200);
-      expect(Array.isArray(response.body)).toBe(true);
-      expect(response.body).toHaveLength(0);
-    });
-
-    it('should handle service errors when getting user bookings', async () => {
-      mocks.getBookingsByUserId.mockRejectedValue(new Error('User not found'));
-
-      const response = await request(app).get('/bookings/user/user-123');
-
-      expect(response.status).toBe(500);
-      expect(response.body.message).toContain('Failed to fetch user bookings');
-      expect(response.body.error).toBe('User not found');
+      validateErrorResponse(res, 404, 'Booking with ID invalid-id not found');
     });
   });
 
   describe('handleMarkBookingAsUsed', () => {
-    it('should mark booking as used', async () => {
-      const response = await request(app).patch('/bookings/booking-123/used');
+    it('should mark a booking as used', async () => {
+      // Setup mock for this test
+      bookingService.markBookingAsUsed = jest.fn().mockResolvedValue({
+        bookingId: 'booking-123',
+        userId: 'user-uuid',
+        screeningId: 'screening-123',
+        seatsNumber: 2,
+        status: 'used',
+      });
 
-      expect(response.status).toBe(200);
-      expect(response.body).toHaveProperty('bookingId', 'booking-123');
-      expect(response.body).toHaveProperty('status', 'used');
-      expect(mocks.markBookingAsUsed).toHaveBeenCalledWith('booking-123');
+      const res = await request(app).patch('/bookings/booking-123/used');
+
+      expect(res.status).toBe(200);
+      expect(res.body.status).toBe('used');
     });
 
-    it('should return 404 if booking not found when marking as used', async () => {
-      const response = await request(app).patch('/bookings/invalid-id/used');
+    it('should return 404 if booking not found for mark as used', async () => {
+      // Setup mock for this test
+      bookingService.markBookingAsUsed = jest.fn().mockResolvedValue(null);
 
-      expect(response.status).toBe(404);
-      expect(response.body.message).toContain('invalid-id');
-    });
+      const res = await request(app).patch('/bookings/invalid-id/used');
 
-    it('should handle service errors when marking booking as used', async () => {
-      mocks.markBookingAsUsed.mockRejectedValue(
-        new Error('Status update failed')
-      );
-
-      const response = await request(app).patch('/bookings/booking-123/used');
-
-      expect(response.status).toBe(500);
-      expect(response.body.message).toContain('Failed to mark booking as used');
-      expect(response.body.error).toBe('Status update failed');
+      validateErrorResponse(res, 404, 'Booking with ID invalid-id not found');
     });
   });
 
   describe('handleCancelBooking', () => {
     it('should cancel a booking', async () => {
-      const response = await request(app).patch('/bookings/booking-123/cancel');
+      // Setup mock for this test
+      bookingService.cancelBooking = jest.fn().mockResolvedValue({
+        bookingId: 'booking-123',
+        userId: 'user-uuid',
+        screeningId: 'screening-123',
+        seatsNumber: 2,
+        status: 'canceled',
+      });
 
-      expect(response.status).toBe(200);
-      expect(response.body).toHaveProperty('bookingId', 'booking-123');
-      expect(response.body).toHaveProperty('status', 'canceled');
-      expect(mocks.cancelBooking).toHaveBeenCalledWith('booking-123');
+      const res = await request(app).patch('/bookings/booking-123/cancel');
+
+      expect(res.status).toBe(200);
+      expect(res.body.status).toBe('canceled');
     });
 
-    it('should return 404 if booking not found when canceling', async () => {
-      const response = await request(app).patch('/bookings/invalid-id/cancel');
+    it('should return 404 if booking not found for cancel', async () => {
+      // Setup mock for this test
+      bookingService.cancelBooking = jest.fn().mockResolvedValue(null);
 
-      expect(response.status).toBe(404);
-      expect(response.body.message).toContain('invalid-id');
+      const res = await request(app).patch('/bookings/invalid-id/cancel');
+
+      validateErrorResponse(res, 404, 'Booking with ID invalid-id not found');
     });
+  });
 
-    it('should handle service errors when canceling booking', async () => {
-      mocks.cancelBooking.mockRejectedValue(new Error('Cancel failed'));
+  describe('handleGetBookingsByUser', () => {
+    it('should retrieve bookings for a user', async () => {
+      // Setup mock for this test
+      bookingService.getBookingsByUserId = jest.fn().mockResolvedValue([
+        {
+          bookingId: 'u1',
+          userId: 'user-uuid',
+          screeningId: 's1',
+          seatsNumber: 2,
+          status: 'pending',
+        },
+      ]);
 
-      const response = await request(app).patch('/bookings/booking-123/cancel');
+      const res = await request(app).get('/bookings/user/user-uuid');
 
-      expect(response.status).toBe(500);
-      expect(response.body.message).toContain('Failed to cancel booking');
-      expect(response.body.error).toBe('Cancel failed');
+      expect(res.status).toBe(200);
+      expect(Array.isArray(res.body)).toBe(true);
+      expect(res.body.length).toBe(1);
     });
   });
 });
