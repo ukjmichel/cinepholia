@@ -1,6 +1,6 @@
 import request from 'supertest';
 import express from 'express';
-import appRouter from '../routes/app';
+import appRouter from '../app';
 import { sequelize } from '../config/db'; // ✅ named import
 
 jest.mock('../config/db', () => ({
