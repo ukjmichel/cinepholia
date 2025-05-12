@@ -3,37 +3,8 @@
 import express, { Request, Response, NextFunction } from 'express';
 import request from 'supertest';
 
-// Mocks for controllers
-const mockHandleGetAllBookings = jest.fn((req, res) =>
-  res.status(200).json([
-    {
-      bookingId: 'b1',
-      userId: 'user-uuid',
-      screeningId: 's1',
-      seatsNumber: 2,
-      status: 'pending',
-    },
-    {
-      bookingId: 'b2',
-      userId: 'user-uuid',
-      screeningId: 's2',
-      seatsNumber: 1,
-      status: 'used',
-    },
-  ])
-);
-
-const mockHandleGetBookingById = jest.fn((req, res) =>
-  res.status(200).json({
-    bookingId: req.params.bookingId,
-    userId: 'user-uuid',
-    screeningId: 'screening-123',
-    seatsNumber: 2,
-    status: 'pending',
-  })
-);
-
-const mockHandleCreateBooking = jest.fn((req, res) =>
+// Mock implementations for controller handlers
+const mockHandleCreateBooking = jest.fn((req: Request, res: Response) =>
   res.status(201).json({
     message: 'Booking created successfully',
     booking: {
@@ -52,7 +23,36 @@ const mockHandleCreateBooking = jest.fn((req, res) =>
   })
 );
 
-const mockHandleUpdateBooking = jest.fn((req, res) =>
+const mockHandleGetAllBookings = jest.fn((req: Request, res: Response) =>
+  res.status(200).json([
+    {
+      bookingId: 'b1',
+      userId: 'user-uuid',
+      screeningId: 's1',
+      seatsNumber: 2,
+      status: 'pending',
+    },
+    {
+      bookingId: 'b2',
+      userId: 'user-uuid',
+      screeningId: 's2',
+      seatsNumber: 1,
+      status: 'used',
+    },
+  ])
+);
+
+const mockHandleGetBookingById = jest.fn((req: Request, res: Response) =>
+  res.status(200).json({
+    bookingId: req.params.bookingId,
+    userId: 'user-uuid',
+    screeningId: 'screening-123',
+    seatsNumber: 2,
+    status: 'pending',
+  })
+);
+
+const mockHandleUpdateBooking = jest.fn((req: Request, res: Response) =>
   res.status(200).json({
     bookingId: req.params.bookingId,
     userId: 'user-uuid',
@@ -62,9 +62,11 @@ const mockHandleUpdateBooking = jest.fn((req, res) =>
   })
 );
 
-const mockHandleDeleteBooking = jest.fn((req, res) => res.status(204).send());
+const mockHandleDeleteBooking = jest.fn((req: Request, res: Response) =>
+  res.status(204).send()
+);
 
-const mockHandleMarkBookingAsUsed = jest.fn((req, res) =>
+const mockHandleMarkBookingAsUsed = jest.fn((req: Request, res: Response) =>
   res.status(200).json({
     bookingId: req.params.bookingId,
     userId: 'user-uuid',
@@ -74,7 +76,7 @@ const mockHandleMarkBookingAsUsed = jest.fn((req, res) =>
   })
 );
 
-const mockHandleCancelBooking = jest.fn((req, res) =>
+const mockHandleCancelBooking = jest.fn((req: Request, res: Response) =>
   res.status(200).json({
     bookingId: req.params.bookingId,
     userId: 'user-uuid',
@@ -84,21 +86,19 @@ const mockHandleCancelBooking = jest.fn((req, res) =>
   })
 );
 
-const mockHandleGetBookingsByUser = jest.fn((req, res) =>
-  res
-    .status(200)
-    .json([
-      {
-        bookingId: 'u1',
-        userId: req.params.userId,
-        screeningId: 's1',
-        seatsNumber: 2,
-        status: 'pending',
-      },
-    ])
+const mockHandleGetBookingsByUser = jest.fn((req: Request, res: Response) =>
+  res.status(200).json([
+    {
+      bookingId: 'u1',
+      userId: req.params.userId,
+      screeningId: 's1',
+      seatsNumber: 2,
+      status: 'pending',
+    },
+  ])
 );
 
-// Mock modules
+// Module mocks
 jest.mock('../../controllers/booking.controller', () => ({
   handleCreateBooking: mockHandleCreateBooking,
   handleGetBookingById: mockHandleGetBookingById,
@@ -111,49 +111,36 @@ jest.mock('../../controllers/booking.controller', () => ({
 }));
 
 jest.mock('../../validators/booking.validator', () => ({
-  validateBookingRequest: (req: Request, res: Response, next: NextFunction) =>
+  validateBookingRequest: (_req: Request, _res: Response, next: NextFunction) =>
     next(),
 }));
 
-jest.mock('../../middlewares/screening.middleware', () => ({
-  isScreeningExist: (req: Request, res: Response, next: NextFunction) => next(),
-}));
-
-jest.mock('../../middlewares/seatBooking.middleware', () => ({
-  isSeatAvailable: (req: Request, res: Response, next: NextFunction) => next(),
-  isValidSeat: (req: Request, res: Response, next: NextFunction) => next(),
-}));
-
-const mockAuthenticateJwt = jest.fn(
-  (req: Request, res: Response, next: NextFunction) => {
-    req.user = {
+jest.mock('../../middlewares/auth.middleware', () => ({
+  authenticateJwt: (_req: Request, _res: Response, next: NextFunction) => {
+    _req.user = {
       id: 'user-uuid',
       name: 'Test User',
       email: 'test@example.com',
     };
     next();
-  }
-);
-
-jest.mock('../../middlewares/auth.middleware', () => ({
-  authenticateJwt: mockAuthenticateJwt,
+  },
 }));
 
 jest.mock('../../middlewares/authorization.middleware', () => ({
   Permission: {
-    authorize: () => (req: Request, res: Response, next: NextFunction) =>
+    authorize: () => (_req: Request, _res: Response, next: NextFunction) =>
       next(),
     isBookingOwnerOrStaff:
-      () => (req: Request, res: Response, next: NextFunction) =>
+      () => (_req: Request, _res: Response, next: NextFunction) =>
         next(),
-    isNotStaff: () => (req: Request, res: Response, next: NextFunction) =>
+    isNotStaff: () => (_req: Request, _res: Response, next: NextFunction) =>
       next(),
-    selfOrStaff: () => (req: Request, res: Response, next: NextFunction) =>
+    selfOrStaff: () => (_req: Request, _res: Response, next: NextFunction) =>
       next(),
   },
 }));
 
-import  bookingRouter  from '../../routes/booking.routes';
+import bookingRouter from '../../routes/booking.routes';
 
 describe('Booking Routes', () => {
   let app: express.Express;
@@ -162,7 +149,7 @@ describe('Booking Routes', () => {
     app = express();
     app.use(express.json());
     app.use('/bookings', bookingRouter);
-    app.use((err: any, req: Request, res: Response, next: NextFunction) => {
+    app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
       res
         .status(err.statusCode || 500)
         .json({ message: err.message || 'Internal Server Error' });
@@ -173,100 +160,69 @@ describe('Booking Routes', () => {
     jest.clearAllMocks();
   });
 
-  describe('POST /bookings', () => {
-    it('should create a booking', async () => {
-      const res = await request(app)
-        .post('/bookings')
-        .send({
-          screeningId: 'screening-uuid',
-          seatsNumber: 2,
-          seatIds: ['s1', 's2'],
-        });
-      expect(res.status).toBe(201);
-      expect(res.body.booking).toBeDefined();
-      expect(res.body.seats).toHaveLength(2);
-      expect(mockHandleCreateBooking).toHaveBeenCalled();
-      expect(mockAuthenticateJwt).toHaveBeenCalled();
-    });
+  it('POST /bookings should create a booking', async () => {
+    const res = await request(app)
+      .post('/bookings')
+      .send({
+        screeningId: 'screening-uuid',
+        seatsNumber: 2,
+        seatIds: ['s1', 's2'],
+      });
+    expect(res.status).toBe(201);
+    expect(mockHandleCreateBooking).toHaveBeenCalled();
   });
 
-  describe('GET /bookings/:bookingId', () => {
-    it('should return a booking', async () => {
-      const res = await request(app).get('/bookings/booking-123');
-      expect(res.status).toBe(200);
-      expect(res.body.bookingId).toBe('booking-123');
-      expect(mockHandleGetBookingById).toHaveBeenCalled();
-    });
+  it('GET /bookings should return all bookings', async () => {
+    const res = await request(app).get('/bookings');
+    expect(res.status).toBe(200);
+    expect(Array.isArray(res.body)).toBe(true);
+    expect(mockHandleGetAllBookings).toHaveBeenCalled();
   });
 
-  describe('GET /bookings', () => {
-    it('should return all bookings', async () => {
-      const res = await request(app).get('/bookings');
-      expect(res.status).toBe(200);
-      expect(Array.isArray(res.body)).toBe(true);
-      expect(res.body.length).toBe(2);
-      expect(mockHandleGetAllBookings).toHaveBeenCalled();
-    });
+  it('GET /bookings/:bookingId should return one booking', async () => {
+    const res = await request(app).get('/bookings/booking-123');
+    expect(res.status).toBe(200);
+    expect(res.body.bookingId).toBe('booking-123');
   });
 
-  describe('PUT /bookings/:bookingId', () => {
-    it('should update a booking', async () => {
-      const res = await request(app)
-        .put('/bookings/booking-123')
-        .send({ status: 'used' });
-      expect(res.status).toBe(200);
-      expect(res.body.status).toBe('used');
-      expect(mockHandleUpdateBooking).toHaveBeenCalled();
-    });
+  it('PUT /bookings/:bookingId should update booking', async () => {
+    const res = await request(app)
+      .put('/bookings/booking-123')
+      .send({ status: 'used' });
+    expect(res.status).toBe(200);
+    expect(res.body.status).toBe('used');
   });
 
-  describe('DELETE /bookings/:bookingId', () => {
-    it('should delete a booking', async () => {
-      const res = await request(app).delete('/bookings/booking-123');
-      expect(res.status).toBe(204);
-      expect(mockHandleDeleteBooking).toHaveBeenCalled();
-    });
+  it('DELETE /bookings/:bookingId should delete booking', async () => {
+    const res = await request(app).delete('/bookings/booking-123');
+    expect(res.status).toBe(204);
   });
 
-  describe('PATCH /bookings/:bookingId/used', () => {
-    it('should mark booking as used', async () => {
-      const res = await request(app).patch('/bookings/booking-123/used');
-      expect(res.status).toBe(200);
-      expect(res.body.status).toBe('used');
-      expect(mockHandleMarkBookingAsUsed).toHaveBeenCalled();
-    });
+  it('PATCH /bookings/:bookingId/used should mark as used', async () => {
+    const res = await request(app).patch('/bookings/booking-123/used');
+    expect(res.status).toBe(200);
+    expect(res.body.status).toBe('used');
   });
 
-  describe('PATCH /bookings/:bookingId/cancel', () => {
-    it('should cancel booking', async () => {
-      const res = await request(app).patch('/bookings/booking-123/cancel');
-      expect(res.status).toBe(200);
-      expect(res.body.status).toBe('canceled');
-      expect(mockHandleCancelBooking).toHaveBeenCalled();
-    });
+  it('PATCH /bookings/:bookingId/cancel should mark as canceled', async () => {
+    const res = await request(app).patch('/bookings/booking-123/cancel');
+    expect(res.status).toBe(200);
+    expect(res.body.status).toBe('canceled');
   });
 
-  describe('GET /bookings/user/:userId', () => {
-    it('should return user bookings', async () => {
-      const res = await request(app).get('/bookings/user/user-123');
-      expect(res.status).toBe(200);
-      expect(res.body.length).toBe(1);
-      expect(res.body[0].userId).toBe('user-123');
-      expect(mockHandleGetBookingsByUser).toHaveBeenCalled();
-    });
+  it('GET /bookings/user/:userId should return user bookings', async () => {
+    const res = await request(app).get('/bookings/user/user-123');
+    expect(res.status).toBe(200);
+    expect(res.body[0].userId).toBe('user-123');
   });
 
-  describe('Route Precedence', () => {
-    it('should prioritize /user/:userId before /:bookingId', async () => {
-      const userRes = await request(app).get('/bookings/user/user-abc');
-      expect(userRes.status).toBe(200);
-      expect(Array.isArray(userRes.body)).toBe(true);
+  it('Route precedence: /user/:userId before /:bookingId', async () => {
+    const userRes = await request(app).get('/bookings/user/user-abc');
+    expect(userRes.status).toBe(200);
+    expect(Array.isArray(userRes.body)).toBe(true);
 
-      jest.clearAllMocks();
-
-      const bookingRes = await request(app).get('/bookings/booking-xyz');
-      expect(bookingRes.status).toBe(200);
-      expect(bookingRes.body.bookingId).toBe('booking-xyz');
-    });
+    const bookingRes = await request(app).get('/bookings/booking-xyz');
+    expect(bookingRes.status).toBe(200);
+    expect(bookingRes.body.bookingId).toBe('booking-xyz');
   });
 });

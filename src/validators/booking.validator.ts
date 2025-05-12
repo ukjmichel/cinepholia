@@ -1,42 +1,52 @@
-import { NextFunction, Request, Response, Router } from 'express';
+import { Request, Response, NextFunction, RequestHandler } from 'express';
 import { body, validationResult } from 'express-validator';
 
-// Validate request body middleware
-export const validateBookingRequest = [
-  // screeningId validation
+/**
+ * Middleware to validate the incoming booking creation request.
+ */
+export const validateBookingRequest: RequestHandler[] = [
+  // Validate screeningId
   body('screeningId')
-    .exists()
+    .exists({ checkNull: true })
     .withMessage('screeningId is required')
-    .isString()
-    .withMessage('screeningId must be a string')
+    .bail()
     .isUUID()
     .withMessage('screeningId must be a valid UUID'),
 
-  // seatsNumber validation
+  // Validate seatsNumber
   body('seatsNumber')
-    .exists()
+    .exists({ checkNull: true })
     .withMessage('seatsNumber is required')
+    .bail()
     .isInt({ min: 1 })
     .withMessage('seatsNumber must be a positive integer'),
 
-  // seatId validation
+  // Validate seatIds
   body('seatIds')
-    .exists()
-    .withMessage('seatId is required')
+    .exists({ checkNull: true })
+    .withMessage('seatIds is required')
+    .bail()
     .isArray({ min: 1 })
-    .withMessage('seatId array cannot be empty')
+    .withMessage('seatIds must be a non-empty array')
+    .bail()
     .custom((value, { req }) => {
+      if (!Array.isArray(value)) throw new Error('seatIds must be an array');
       if (value.length !== req.body.seatsNumber) {
-        throw new Error('seatId array length must match seatsNumber');
+        throw new Error('seatIds length must match seatsNumber');
       }
       return true;
     }),
 
-  // Each seat ID in the array
-  body('seatId.*').isString().withMessage('Each seat ID must be a string'),
+  // Validate each seatId in the array
+  body('seatIds.*')
+    .isString()
+    .withMessage('Each seat ID must be a string')
+    .bail()
+    .isUUID()
+    .withMessage('Each seat ID must be a valid UUID'),
 
-  // Custom validation middleware that checks express-validator results
-  (req: Request, res: Response, next: NextFunction) => {
+  // Handle validation result
+  (req: Request, res: Response, next: NextFunction): void => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       res.status(400).json({

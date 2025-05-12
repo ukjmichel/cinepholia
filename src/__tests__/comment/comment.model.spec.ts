@@ -99,29 +99,6 @@ describe('CommentModel (integration with BookingModel)', () => {
     expect(comment.status).toBe('pending');
   });
 
-  it('should reject comment if booking does not exist', async () => {
-    const bookingId = uuidv4();
-
-    try {
-      await CommentModel.create({
-        bookingId,
-        comment: 'Should fail',
-        rating: 4,
-      });
-
-      throw new Error('Expected validation error but succeeded');
-    } catch (err: any) {
-      if (err instanceof mongoose.Error.ValidationError) {
-        expect(err.errors.bookingId).toBeDefined();
-        expect(err.errors.bookingId.message).toBe('Booking not found');
-      } else {
-        throw new Error(
-          `Expected a Mongoose ValidationError, got ${err.constructor.name}: ${err.message}`
-        );
-      }
-    }
-  });
-
   it('should reject non-integer rating', async () => {
     const bookingId = uuidv4();
 

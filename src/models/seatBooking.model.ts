@@ -20,7 +20,7 @@ export interface SeatBookingAttributes {
 
 @Table({
   tableName: 'seat_bookings',
-  timestamps: false, // Optional: true if you want createdAt/updatedAt
+  timestamps: false,
 })
 export class SeatBookingModel extends Model<SeatBookingAttributes> {
   @PrimaryKey
@@ -30,13 +30,17 @@ export class SeatBookingModel extends Model<SeatBookingAttributes> {
     type: DataType.UUID,
     allowNull: false,
     field: 'screening_id',
+    onDelete: 'CASCADE',
   })
   screeningId!: string;
 
   @PrimaryKey
-  @Column(DataType.STRING) // change from DataType.INTEGER
+  @Column({
+    type: DataType.STRING,
+    allowNull: false,
+    field: 'seat_id',
+  })
   seatId!: string;
-
 
   @IsUUID(4)
   @ForeignKey(() => BookingModel)
@@ -44,13 +48,14 @@ export class SeatBookingModel extends Model<SeatBookingAttributes> {
     type: DataType.UUID,
     allowNull: false,
     field: 'booking_id',
+    onDelete: 'CASCADE',
   })
   bookingId!: string;
 
-  // Associations
   @BelongsTo(() => ScreeningModel)
   screening!: ScreeningModel;
 
   @BelongsTo(() => BookingModel)
   booking!: BookingModel;
 }
+

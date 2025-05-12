@@ -50,92 +50,72 @@ function validateAndCorrectDurationFormat(duration: string): string {
  */
 export class ScreeningService {
   /**
-   * Create a new screening after verifying:
-   * - The movie, theater, and hall exist.
-   * - The hall is available (no overlapping screenings) at the requested time.
-   *
-   * @param data - The screening attributes (movieId, theaterId, hallId, startTime, durationTime)
-   * @param transaction - Optional transaction for atomic operations
-   * @returns Promise<ScreeningModel> - The created screening
-   *
-   * @throws NotFoundError if the movie, theater, or hall is not found.
-   * @throws BadRequestError if another screening already occupies the requested time slot in the same hall.
+   * Create a new screening after checking for movie, theater, hall existence and time conflicts.
    */
   async createScreening(
     data: ScreeningAttributes,
     transaction?: Transaction
   ): Promise<ScreeningModel> {
-    // ✅ Validate and correct durationTime immediately
     data.durationTime = validateAndCorrectDurationFormat(data.durationTime);
+    const newStartTime = new Date(data.startTime);
 
-    const newStartTime = new Date(data.startTime); // 📌 parse it once here
+    const startOfDay = new Date(
+      newStartTime.getFullYear(),
+      newStartTime.getMonth(),
+      newStartTime.getDate(),
+      0,
+      0,
+      0
+    );
+    const endOfDay = new Date(
+      newStartTime.getFullYear(),
+      newStartTime.getMonth(),
+      newStartTime.getDate(),
+      23,
+      59,
+      59
+    );
 
     const [movie, theater, hall, screenings] = await Promise.all([
       MovieModel.findByPk(data.movieId, { transaction }),
       MovieTheaterModel.findByPk(data.theaterId, { transaction }),
       MovieHallModel.findOne({
-        where: {
-          theaterId: data.theaterId,
-          hallId: data.hallId,
-        },
+        where: { theaterId: data.theaterId, hallId: data.hallId },
         transaction,
       }),
-      // Fetch all screenings in the same hall and same day
       ScreeningModel.findAll({
         where: {
           theaterId: data.theaterId,
           hallId: data.hallId,
-          startTime: {
-            [Op.gte]: new Date(
-              newStartTime.getFullYear(),
-              newStartTime.getMonth(),
-              newStartTime.getDate(),
-              0,
-              0,
-              0
-            ),
-            [Op.lte]: new Date(
-              newStartTime.getFullYear(),
-              newStartTime.getMonth(),
-              newStartTime.getDate(),
-              23,
-              59,
-              59
-            ),
-          },
+          startTime: { [Op.gte]: startOfDay, [Op.lte]: endOfDay },
         },
         transaction,
       }),
     ]);
 
-    if (!movie) {
+    if (!movie)
       throw new NotFoundError(`Movie with ID ${data.movieId} not found.`);
-    }
-    if (!theater) {
+    if (!theater)
       throw new NotFoundError(`Theater with ID ${data.theaterId} not found.`);
-    }
-    if (!hall) {
+    if (!hall)
       throw new NotFoundError(
         `Hall with ID ${data.hallId} in theater ${data.theaterId} not found.`
       );
-    }
 
     const [hours, minutes, seconds] = data.durationTime.split(':').map(Number);
     const newEndTime = new Date(
       newStartTime.getTime() + (hours * 3600 + minutes * 60 + seconds) * 1000
     );
 
-    // Check if any existing screening overlaps
     const hasConflict = screenings.some((existing) => {
       const existingStart = new Date(existing.startTime);
-      const [exHours, exMinutes, exSeconds] = (existing.durationTime as string)
+      const [exHours, exMinutes, exSeconds] = existing.durationTime
         .split(':')
         .map(Number);
       const existingEnd = new Date(
         existingStart.getTime() +
           (exHours * 3600 + exMinutes * 60 + exSeconds) * 1000
       );
-
       return newStartTime < existingEnd && existingStart < newEndTime;
     });
 
@@ -145,49 +125,45 @@ export class ScreeningService {
       );
     }
 
-    // ✅ Create the screening
     return await ScreeningModel.create(data, { transaction });
   }
 
   /**
    * Get a screening by its ID.
-   * @param screeningId - Screening ID
-   * @param transaction - Optional transaction for consistent reads
-   * @returns Promise<ScreeningModel | null> - Found screening or null
    */
   async getScreeningById(
     screeningId: string,
     transaction?: Transaction
-  ): Promise<ScreeningModel | null> {
-    return await ScreeningModel.findByPk(screeningId, { transaction });
+  ): Promise<ScreeningModel> {
+    const screening = await ScreeningModel.findByPk(screeningId, {
+      transaction,
+    });
+    if (!screening) {
+      throw new NotFoundError('Screening not found');
+    }
+    return screening;
   }
 
   /**
    * Get all screenings.
-   * @param transaction - Optional transaction for consistent reads
-   * @returns Promise<ScreeningModel[]> - List of screenings
    */
   async getAllScreenings(transaction?: Transaction): Promise<ScreeningModel[]> {
     return await ScreeningModel.findAll({ transaction });
   }
 
   /**
-   * Update a screening by its ID.
-   * @param screeningId - Screening ID
-   * @param updateData - Partial data to update
-   * @param transaction - Optional transaction for atomic operations
-   * @returns Promise<ScreeningModel | null> - Updated screening or null if not found
+   * Update a screening by its ID and check for time conflicts if relevant fields change.
    */
   async updateScreening(
     screeningId: string,
     updateData: Partial<ScreeningAttributes>,
     transaction?: Transaction
-  ): Promise<ScreeningModel | null> {
+  ): Promise<ScreeningModel> {
     const screening = await ScreeningModel.findByPk(screeningId, {
       transaction,
     });
     if (!screening) {
-      return null;
+      throw new NotFoundError('Screening not found');
     }
 
     if (updateData.durationTime) {
@@ -196,33 +172,88 @@ export class ScreeningService {
       );
     }
 
+    const needsConflictCheck =
+      updateData.startTime ||
+      updateData.durationTime ||
+      updateData.hallId ||
+      updateData.theaterId;
+
+    if (needsConflictCheck) {
+      const hallId = updateData.hallId ?? screening.hallId;
+      const theaterId = updateData.theaterId ?? screening.theaterId;
+      const startTime = new Date(updateData.startTime ?? screening.startTime);
+      const duration = updateData.durationTime ?? screening.durationTime;
+
+      const [hours, minutes, seconds] = duration.split(':').map(Number);
+      const endTime = new Date(
+        startTime.getTime() + (hours * 3600 + minutes * 60 + seconds) * 1000
+      );
+
+      const screenings = await ScreeningModel.findAll({
+        where: {
+          screeningId: { [Op.ne]: screeningId },
+          theaterId,
+          hallId,
+          startTime: {
+            [Op.gte]: new Date(
+              startTime.getFullYear(),
+              startTime.getMonth(),
+              startTime.getDate(),
+              0,
+              0,
+              0
+            ),
+            [Op.lte]: new Date(
+              startTime.getFullYear(),
+              startTime.getMonth(),
+              startTime.getDate(),
+              23,
+              59,
+              59
+            ),
+          },
+        },
+        transaction,
+      });
+
+      const hasConflict = screenings.some((existing) => {
+        const existingStart = new Date(existing.startTime);
+        const [exH, exM, exS] = existing.durationTime.split(':').map(Number);
+        const existingEnd = new Date(
+          existingStart.getTime() + (exH * 3600 + exM * 60 + exS) * 1000
+        );
+        return startTime < existingEnd && existingStart < endTime;
+      });
+
+      if (hasConflict) {
+        throw new BadRequestError(
+          'Another screening is already scheduled in this hall during the selected time slot.'
+        );
+      }
+    }
+
     await screening.update(updateData, { transaction });
     return screening;
   }
 
   /**
    * Delete a screening by its ID.
-   * @param screeningId - Screening ID
-   * @param transaction - Optional transaction for atomic operations
-   * @returns Promise<boolean> - True if deleted, false if not found
    */
   async deleteScreening(
     screeningId: string,
     transaction?: Transaction
-  ): Promise<boolean> {
+  ): Promise<void> {
     const deletedCount = await ScreeningModel.destroy({
       where: { screeningId },
       transaction,
     });
-    return deletedCount > 0;
+    if (deletedCount === 0) {
+      throw new NotFoundError('Screening not found');
+    }
   }
 
   /**
-   * Get screenings by theaterId and movieId.
-   * @param theaterId - Theater ID
-   * @param movieId - Movie ID
-   * @param transaction - Optional transaction for consistent reads
-   * @returns Promise<ScreeningModel[]> - List of screenings
+   * Get screenings by theater and movie.
    */
   async getScreeningsByTheaterAndMovieId(
     theaterId: string,
@@ -230,25 +261,19 @@ export class ScreeningService {
     transaction?: Transaction
   ): Promise<ScreeningModel[]> {
     return await ScreeningModel.findAll({
-      where: {
-        theaterId,
-        movieId,
-      },
+      where: { theaterId, movieId },
       transaction,
     });
   }
 
   /**
-   * Get screenings by movie ID
-   * @param movieId - The movie ID
-   * @param transaction - Optional transaction for consistent reads
-   * @returns List of screenings for the movie
+   * Get screenings by movie ID.
    */
   async getScreeningsByMovieId(
     movieId: string,
     transaction?: Transaction
   ): Promise<ScreeningModel[]> {
-    return ScreeningModel.findAll({
+    return await ScreeningModel.findAll({
       where: { movieId },
       order: [['startTime', 'ASC']],
       transaction,
@@ -256,16 +281,13 @@ export class ScreeningService {
   }
 
   /**
-   * Get screenings by theater ID
-   * @param theaterId - The theater ID
-   * @param transaction - Optional transaction for consistent reads
-   * @returns List of screenings for the theater
+   * Get screenings by theater ID.
    */
   async getScreeningsByTheaterId(
     theaterId: string,
     transaction?: Transaction
   ): Promise<ScreeningModel[]> {
-    return ScreeningModel.findAll({
+    return await ScreeningModel.findAll({
       where: { theaterId },
       order: [['startTime', 'ASC']],
       transaction,

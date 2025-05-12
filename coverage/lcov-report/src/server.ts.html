@@ -25,28 +25,28 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>0/9</span>
+                <span class='fraction'>0/15</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">100% </span>
+                <span class="strong">0% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>0/0</span>
+                <span class='fraction'>0/2</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>0/1</span>
+                <span class='fraction'>0/3</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>0/9</span>
+                <span class='fraction'>0/15</span>
             </div>
         
             
@@ -80,40 +80,76 @@
 <a name='L15'></a><a href='#L15'>15</a>
 <a name='L16'></a><a href='#L16'>16</a>
 <a name='L17'></a><a href='#L17'>17</a>
-<a name='L18'></a><a href='#L18'>18</a></td><td class="line-coverage quiet"><span class="cline-any cline-no">&nbsp;</span>
+<a name='L18'></a><a href='#L18'>18</a>
+<a name='L19'></a><a href='#L19'>19</a>
+<a name='L20'></a><a href='#L20'>20</a>
+<a name='L21'></a><a href='#L21'>21</a>
+<a name='L22'></a><a href='#L22'>22</a>
+<a name='L23'></a><a href='#L23'>23</a>
+<a name='L24'></a><a href='#L24'>24</a>
+<a name='L25'></a><a href='#L25'>25</a>
+<a name='L26'></a><a href='#L26'>26</a>
+<a name='L27'></a><a href='#L27'>27</a>
+<a name='L28'></a><a href='#L28'>28</a>
+<a name='L29'></a><a href='#L29'>29</a>
+<a name='L30'></a><a href='#L30'>30</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js"><span class="cstat-no" title="statement not covered" >import express from 'express';</span>
-<span class="cstat-no" title="statement not covered" >import { setupSwagger } from './config/swagger';</span>
-<span class="cstat-no" title="statement not covered" >import appRouter from './routes/app';</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">// src/server.ts
+<span class="cstat-no" title="statement not covered" >import dotenv from 'dotenv';</span>
+<span class="cstat-no" title="statement not covered" >import app from './app';</span>
+<span class="cstat-no" title="statement not covered" >import { sequelize } from './config/db';</span>
+<span class="cstat-no" title="statement not covered" >import connectMongoDB from './config/mongo';</span>
 &nbsp;
-const app = <span class="cstat-no" title="statement not covered" >express();</span>
-const port = <span class="cstat-no" title="statement not covered" >3000;</span>
+<span class="cstat-no" title="statement not covered" >dotenv.config();</span>
 &nbsp;
-<span class="cstat-no" title="statement not covered" >setupSwagger(app);</span>
+const port = <span class="cstat-no" title="statement not covered" >Number(process.env.PORT) || 3000;</span>
 &nbsp;
-<span class="cstat-no" title="statement not covered" >app.use('/', appRouter);</span>
+const server = <span class="cstat-no" title="statement not covered" >app.listen(port, '0.0.0.0', <span class="fstat-no" title="function not covered" >async </span>() =&gt; {</span>
+<span class="cstat-no" title="statement not covered" >  try {</span>
+<span class="cstat-no" title="statement not covered" >    await Promise.all([</span>
+      sequelize.authenticate().then(<span class="fstat-no" title="function not covered" >() =</span>&gt; {
+<span class="cstat-no" title="statement not covered" >        console.log('✅ MySQL connection successful');</span>
+      }),
+      connectMongoDB().then(<span class="fstat-no" title="function not covered" >() =</span>&gt; {
+<span class="cstat-no" title="statement not covered" >        console.log('✅ MongoDB connection successful');</span>
+      }),
+    ]);
+  } catch (err) {
+<span class="cstat-no" title="statement not covered" >    console.error('❌ Error during DB connections:', err);</span>
+<span class="cstat-no" title="statement not covered" >    process.exit(1); </span>// Exit if any connection fails
+  }
 &nbsp;
-// Store the server instance so we can close it gracefully
-const server = <span class="cstat-no" title="statement not covered" >app.listen(port, '0.0.0.0', <span class="fstat-no" title="function not covered" >() =</span>&gt; {</span>
-<span class="cstat-no" title="statement not covered" >  console.log(`Server running at http://0.0.0.0:${port}/`);</span>
+<span class="cstat-no" title="statement not covered" >  console.log(`🚀 Server running at http://0.0.0.0:${port}/`);</span>
 });
 &nbsp;
-&nbsp;
+<span class="cstat-no" title="statement not covered" >export default server;</span>
 &nbsp;</pre></td></tr></table></pre>
 
                 <div class='push'></div><!-- for sticky footer -->
@@ -121,7 +157,7 @@ const server = <span class="cstat-no" title="statement not covered" >app.listen(
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2025-05-06T08:51:08.063Z
+                at 2025-05-12T17:43:29.061Z
             </div>
         <script src="../prettify.js"></script>
         <script>

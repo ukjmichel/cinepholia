@@ -55,11 +55,11 @@ const screeningRouter = Router();
  *         startTime:
  *           type: string
  *           format: date-time
- *           description: Start time of the screening (ISO8601 format)
+ *           description: Start time of the screening (ISO 8601)
  *         durationTime:
  *           type: string
- *           pattern: '^([0-1]\\d|2[0-3]):([0-5]\\d):([0-5]\\d)$'
  *           description: Duration in format HH:mm:ss
+ *           example: "02:30:00"
  *       example:
  *         screeningId: "b2c10c4a-1b02-4c78-821f-7c28d81e9437"
  *         movieId: "f8f6d1e0-5e6d-4b60-86c4-6a81a1d4e58a"
@@ -207,8 +207,8 @@ screeningRouter.get(
 /**
  * @swagger
  * /screenings/{screeningId}:
- *   put:
- *     summary: Update a screening
+ *   patch:
+ *     summary: Partially update a screening
  *     tags: [Screenings]
  *     security:
  *       - bearerAuth: []
@@ -244,7 +244,7 @@ screeningRouter.get(
  *       500:
  *         description: Server error
  */
-screeningRouter.put(
+screeningRouter.patch(
   '/:screeningId',
   authenticateJwt,
   Permission.authorize('employé'),

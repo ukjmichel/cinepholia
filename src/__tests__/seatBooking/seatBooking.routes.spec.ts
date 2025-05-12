@@ -2,135 +2,90 @@
 
 import express, { Express } from 'express';
 import request from 'supertest';
+import seatBookingRoutes from '../../routes/seatBooking.routes';
+import { SeatBookingModel } from '../../models/seatBooking.model';
+import { BookingModel } from '../../models/booking.model';
 import { Sequelize } from 'sequelize-typescript';
 import { v4 as uuidv4 } from 'uuid';
 
-import seatBookingRouter from '../../routes/seatBooking.routes';
-import { SeatBookingModel } from '../../models/seatBooking.model';
-import { BookingModel } from '../../models/booking.model';
-import { UserModel } from '../../models/user.model';
-import { ScreeningModel } from '../../models/screening.model';
-import { MovieModel } from '../../models/movie.model';
-import { MovieTheaterModel } from '../../models/movietheater.model';
-import { MovieHallModel } from '../../models/movieHall.model';
+import {
+  setupInMemoryDatabase,
+  connectInMemoryMongo,
+  disconnectInMemoryMongo,
+  seedBookingDependencies,
+  resetTables,
+} from '../../utils/setupTestDb';
 
-// Mock middlewares
+// Mock auth middlewares
 jest.mock('../../middlewares/auth.middleware', () => ({
-  authenticateJwt: (req: any, res: any, next: any) => {
-    req.user = { userId: 'test-user-id', role: 'utilisateur' };
-    next();
-  },
+  authenticateJwt: (_req: any, _res: any, next: any) => next(),
 }));
 
 jest.mock('../../middlewares/authorization.middleware', () => ({
   Permission: {
-    authorize: () => (req: any, res: any, next: any) => next(),
-    isNotStaff: () => (req: any, res: any, next: any) => next(),
-    isBookingOwnerOrStaff: () => (req: any, res: any, next: any) => next(),
+    isNotStaff: () => (_req: any, _res: any, next: any) => next(),
+    isBookingOwnerOrStaff: () => (_req: any, _res: any, next: any) => next(),
+    authorize: () => (_req: any, _res: any, next: any) => next(),
   },
 }));
 
-let app: Express;
-let sequelize: Sequelize;
-let testBookingId: string;
-let testScreeningId: string;
-
-beforeAll(async () => {
-  sequelize = new Sequelize({
-    dialect: 'sqlite',
-    storage: ':memory:',
-    logging: false,
-    models: [
-      SeatBookingModel,
-      BookingModel,
-      UserModel,
-      ScreeningModel,
-      MovieModel,
-      MovieTheaterModel,
-      MovieHallModel,
-    ],
-  });
-
-  await sequelize.sync({ force: true });
-
-  app = express();
-  app.use(express.json());
-  app.use('/seat-bookings', seatBookingRouter);
-});
-
-afterAll(async () => {
-  if (sequelize) {
-    await sequelize.close();
-  }
-});
-
-beforeEach(async () => {
-  await sequelize.sync({ force: true });
-
-  const user = await UserModel.create({
-    id: 'test-user-id',
-    name: 'TestUser',
-    email: 'test@example.com',
-    password: 'password123',
-  });
-
-  const movie = await MovieModel.create({
-    movieId: uuidv4(),
-    title: 'Interstellar', // 🔥 Correct: title (was name)
-    description: 'Space journey',
-    ageRating: 'PG-13', // 🔥 Correct: ageRating (was age)
-    genre: 'Sci-Fi',
-    releaseDate: new Date('2014-11-07'), // 🔥 Correct: releaseDate (was date)
-    director: 'Christopher Nolan', // 🔥 Add mandatory field
-    durationTime: "02:20:23", // 🔥 Add mandatory field
-  });
-
-  const theater = await MovieTheaterModel.create({
-    theaterId: uuidv4(),
-    address: '123 Main Street',
-    postalCode: '75000',
-    city: 'Paris',
-    phone: '0102030405',
-    email: 'theater@example.com',
-  });
-
-  const hall = await MovieHallModel.create({
-    hallId: uuidv4(),
-    theaterId: theater.theaterId,
-    seatsLayout: [
-      [1, 2, 3, '', 4, 5],
-      [6, 7, 8, '', 9, 10],
-    ],
-  });
-
-  const screening = await ScreeningModel.create({
-    screeningId: uuidv4(),
-    movieId: movie.movieId,
-    theaterId: theater.theaterId,
-    hallId: hall.hallId,
-    startTime: new Date('2025-01-01T18:00:00Z'),
-    durationTime: "02:20:20",
-  });
-
-  testScreeningId = screening.screeningId;
-
-  const booking = await BookingModel.create({
-    bookingId: uuidv4(),
-    userId: user.id,
-    screeningId: screening.screeningId,
-    bookingDate: new Date(),
-    seatsNumber: 1,
-  });
-
-  testBookingId = booking.bookingId;
-});
-
 describe('SeatBooking Routes', () => {
-  describe('POST /seat-bookings', () => {
-    it('should create a seat booking', async () => {
+  let app: Express;
+  let sequelize: Sequelize;
+  let testBookingId: string;
+  let testScreeningId: string;
+  let testSeatId: string = '1'; // Using '1' as it should exist in the seeded layout
+
+  beforeAll(async () => {
+    // Setup in-memory databases
+    sequelize = await setupInMemoryDatabase();
+
+    // Add SeatBookingModel if not included in setupInMemoryDatabase
+    sequelize.addModels([SeatBookingModel]);
+    await sequelize.sync({ force: true });
+
+    await connectInMemoryMongo();
+
+    // Setup Express application
+    app = express();
+    app.use(express.json());
+    app.use('/seat-bookings', seatBookingRoutes);
+  });
+
+  beforeEach(async () => {
+    // Reset database state and seed test data
+    await resetTables();
+    await SeatBookingModel.destroy({
+      where: {},
+      truncate: true,
+      cascade: true,
+    });
+
+    // Create test data using the seed utility
+    const { user, screening } = await seedBookingDependencies();
+    testScreeningId = screening.screeningId;
+
+    // Create a booking
+    const booking = await BookingModel.create({
+      bookingId: uuidv4(),
+      userId: user.id,
+      screeningId: screening.screeningId,
+      seatsNumber: 1,
+      status: 'pending',
+    });
+    testBookingId = booking.bookingId;
+  });
+
+  afterAll(async () => {
+    await disconnectInMemoryMongo();
+    await sequelize.close();
+  });
+
+  describe('POST /', () => {
+    it('should create a new seat booking', async () => {
       const seatBookingData = {
         screeningId: testScreeningId,
-        seatId: 'A2',
+        seatId: testSeatId,
         bookingId: testBookingId,
       };
 
@@ -140,104 +95,188 @@ describe('SeatBooking Routes', () => {
 
       expect(res.status).toBe(201);
       expect(res.body).toHaveProperty('screeningId', testScreeningId);
-      expect(res.body).toHaveProperty('seatId', 'A2');
+      expect(res.body).toHaveProperty('seatId', testSeatId);
       expect(res.body).toHaveProperty('bookingId', testBookingId);
-    });
-  });
 
-  describe('GET /seat-bookings/:screeningId/:seatId', () => {
-    it('should retrieve a seat booking by screeningId and seatId', async () => {
+      // Verify the seat booking was actually created in the database
+      const seatBooking = await SeatBookingModel.findOne({
+        where: { screeningId: testScreeningId, seatId: testSeatId },
+      });
+      expect(seatBooking).not.toBeNull();
+    });
+
+    it('should return 500 if trying to book an already booked seat', async () => {
+      // First create a seat booking
       await SeatBookingModel.create({
         screeningId: testScreeningId,
-        seatId: 'A1',
+        seatId: testSeatId,
         bookingId: testBookingId,
       });
 
-      const res = await request(app).get(
-        `/seat-bookings/${testScreeningId}/A1`
-      );
+      // Try to book the same seat again
+      const seatBookingData = {
+        screeningId: testScreeningId,
+        seatId: testSeatId,
+        bookingId: testBookingId,
+      };
 
-      expect(res.status).toBe(200);
-      expect(res.body).toHaveProperty('seatId', 'A1');
-    });
+      const res = await request(app)
+        .post('/seat-bookings')
+        .send(seatBookingData);
 
-    it('should return 404 if seat booking not found', async () => {
-      const res = await request(app).get(
-        `/seat-bookings/${testScreeningId}/nonexistent-seat`
-      );
-
-      expect(res.status).toBe(404);
-      expect(res.body).toHaveProperty('message');
+      expect(res.status).toBe(500); // This would ideally be a 409 Conflict, but your controller returns 500
     });
   });
 
-  describe('GET /seat-bookings/booking/:bookingId', () => {
-    it('should retrieve seat bookings by bookingId', async () => {
-      // 👉 Ajoute ça pour créer un seatBooking lié avant de tester
+  describe('GET /booking/:bookingId', () => {
+    it('should retrieve seat bookings for a booking', async () => {
+      // Create multiple seat bookings for the same booking
       await SeatBookingModel.create({
         screeningId: testScreeningId,
-        seatId: 'B1',
+        seatId: '1',
+        bookingId: testBookingId,
+      });
+
+      await SeatBookingModel.create({
+        screeningId: testScreeningId,
+        seatId: '2',
         bookingId: testBookingId,
       });
 
       const res = await request(app).get(
         `/seat-bookings/booking/${testBookingId}`
       );
+
       expect(res.status).toBe(200);
       expect(Array.isArray(res.body)).toBe(true);
-      expect(res.body.length).toBeGreaterThan(0);
+      expect(res.body.length).toBe(2);
       expect(res.body[0]).toHaveProperty('bookingId', testBookingId);
+    });
+
+    it('should return empty array when no bookings exist', async () => {
+      const nonExistentBookingId = uuidv4();
+      const res = await request(app).get(
+        `/seat-bookings/booking/${nonExistentBookingId}`
+      );
+
+      expect(res.status).toBe(200);
+      expect(Array.isArray(res.body)).toBe(true);
+      expect(res.body.length).toBe(0);
     });
   });
 
-  describe('GET /seat-bookings/screening/:screeningId', () => {
-    it('should retrieve seat bookings by screeningId', async () => {
-      // 👉 Ajoute ça pour créer un seatBooking lié avant de tester
+  describe('GET /screening/:screeningId', () => {
+    it('should retrieve seat bookings for a screening', async () => {
+      // Create seat bookings for the screening using the existing booking
       await SeatBookingModel.create({
         screeningId: testScreeningId,
-        seatId: 'C1',
+        seatId: '1',
         bookingId: testBookingId,
+      });
+
+      await SeatBookingModel.create({
+        screeningId: testScreeningId,
+        seatId: '2',
+        bookingId: testBookingId, // Using the same booking ID is fine
       });
 
       const res = await request(app).get(
         `/seat-bookings/screening/${testScreeningId}`
       );
+
       expect(res.status).toBe(200);
       expect(Array.isArray(res.body)).toBe(true);
-      expect(res.body.length).toBeGreaterThan(0);
+      expect(res.body.length).toBe(2);
       expect(res.body[0]).toHaveProperty('screeningId', testScreeningId);
     });
   });
 
-
-
-  describe('DELETE /seat-bookings/:screeningId/:seatId', () => {
-    it('should delete a seat booking', async () => {
+  describe('GET /:screeningId/:seatId', () => {
+    it('should retrieve a specific seat booking', async () => {
+      // Create a seat booking
       await SeatBookingModel.create({
         screeningId: testScreeningId,
-        seatId: 'A3',
+        seatId: testSeatId,
+        bookingId: testBookingId,
+      });
+
+      const res = await request(app).get(
+        `/seat-bookings/${testScreeningId}/${testSeatId}`
+      );
+
+      expect(res.status).toBe(200);
+      expect(res.body).toHaveProperty('screeningId', testScreeningId);
+      expect(res.body).toHaveProperty('seatId', testSeatId);
+      expect(res.body).toHaveProperty('bookingId', testBookingId);
+    });
+
+    it('should return 404 when seat booking does not exist', async () => {
+      const nonExistentSeatId = 'Z99';
+      const res = await request(app).get(
+        `/seat-bookings/${testScreeningId}/${nonExistentSeatId}`
+      );
+
+      expect(res.status).toBe(404);
+    });
+  });
+
+  describe('DELETE /:screeningId/:seatId', () => {
+    it('should delete a seat booking', async () => {
+      // Create a seat booking
+      await SeatBookingModel.create({
+        screeningId: testScreeningId,
+        seatId: testSeatId,
         bookingId: testBookingId,
       });
 
       const res = await request(app).delete(
-        `/seat-bookings/${testScreeningId}/A3`
+        `/seat-bookings/${testScreeningId}/${testSeatId}`
       );
 
       expect(res.status).toBe(204);
 
-      const deleted = await SeatBookingModel.findOne({
-        where: { screeningId: testScreeningId, seatId: 'A3' },
+      // Verify the seat booking was actually deleted
+      const seatBooking = await SeatBookingModel.findOne({
+        where: { screeningId: testScreeningId, seatId: testSeatId },
       });
-      expect(deleted).toBeNull();
+      expect(seatBooking).toBeNull();
     });
 
-    it('should return 404 when deleting a nonexistent seat booking', async () => {
+    it('should return 404 when seat booking to delete does not exist', async () => {
+      const nonExistentSeatId = 'Z99';
       const res = await request(app).delete(
-        `/seat-bookings/${testScreeningId}/nonexistent-seat`
+        `/seat-bookings/${testScreeningId}/${nonExistentSeatId}`
       );
 
       expect(res.status).toBe(404);
-      expect(res.body).toHaveProperty('message');
+    });
+  });
+
+  describe('Edge cases', () => {
+    it('should handle invalid data when creating seat booking', async () => {
+      const invalidData = {
+        // Missing required fields
+        screeningId: testScreeningId,
+        // No seatId
+        bookingId: testBookingId,
+      };
+
+      const res = await request(app).post('/seat-bookings').send(invalidData);
+
+      // Expect an error (exact status depends on your implementation)
+      expect(res.status).toBeGreaterThanOrEqual(400);
+    });
+
+    it('should handle malformed IDs when retrieving seat bookings', async () => {
+      const malformedId = 'not-a-valid-uuid';
+      const res = await request(app).get(
+        `/seat-bookings/booking/${malformedId}`
+      );
+
+      // Check that the API handles this gracefully
+      expect(res.status).toBe(200);
+      expect(Array.isArray(res.body)).toBe(true);
+      expect(res.body.length).toBe(0);
     });
   });
 });

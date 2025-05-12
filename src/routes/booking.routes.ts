@@ -46,6 +46,10 @@ const bookingRouter = Router();
  *     responses:
  *       201:
  *         description: Booking created successfully
+ *       400:
+ *         description: Bad request (e.g. missing or invalid fields)
+ *       401:
+ *         description: Unauthorized
  */
 bookingRouter.post(
   '/',
@@ -58,7 +62,7 @@ bookingRouter.post(
  * @swagger
  * /bookings/user/{userId}:
  *   get:
- *     summary: Get bookings for a specific user
+ *     summary: Get bookings for a specific user (with comment status)
  *     tags: [Bookings]
  *     security:
  *       - bearerAuth: []
@@ -71,6 +75,10 @@ bookingRouter.post(
  *     responses:
  *       200:
  *         description: User bookings retrieved successfully
+ *       400:
+ *         description: Invalid user ID format
+ *       401:
+ *         description: Unauthorized
  */
 bookingRouter.get('/user/:userId', authenticateJwt, handleGetBookingsByUser);
 
@@ -91,6 +99,8 @@ bookingRouter.get('/user/:userId', authenticateJwt, handleGetBookingsByUser);
  *     responses:
  *       200:
  *         description: Booking retrieved successfully
+ *       401:
+ *         description: Unauthorized
  *       404:
  *         description: Booking not found
  */
@@ -107,6 +117,8 @@ bookingRouter.get('/:bookingId', authenticateJwt, handleGetBookingById);
  *     responses:
  *       200:
  *         description: List of all bookings
+ *       401:
+ *         description: Unauthorized
  */
 bookingRouter.get('/', authenticateJwt, handleGetAllBookings);
 
@@ -137,6 +149,10 @@ bookingRouter.get('/', authenticateJwt, handleGetAllBookings);
  *     responses:
  *       200:
  *         description: Booking updated successfully
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden (not booking owner or staff)
  *       404:
  *         description: Booking not found
  */
@@ -164,6 +180,10 @@ bookingRouter.put(
  *     responses:
  *       204:
  *         description: Booking deleted successfully
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
  *       404:
  *         description: Booking not found
  */
@@ -191,6 +211,10 @@ bookingRouter.delete(
  *     responses:
  *       200:
  *         description: Booking marked as used
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden (only staff can perform this)
  *       404:
  *         description: Booking not found
  */
@@ -218,6 +242,10 @@ bookingRouter.patch(
  *     responses:
  *       200:
  *         description: Booking canceled
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden (not booking owner or staff)
  *       404:
  *         description: Booking not found
  */

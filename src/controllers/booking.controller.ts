@@ -9,8 +9,8 @@ import { Transaction } from 'sequelize';
 import crypto from 'crypto';
 import { sequelize } from '../config/db';
 import { SeatBookingService } from '../services/seatBooking.service';
-import { NotAuthorizedError } from '../errors/NotAuthorizedError ';
-
+import { CommentModel } from '../models/comment.model';
+import { NotAuthorizedError } from '../errors/NotAuthorizedError';
 export const screeningService = new ScreeningService();
 export const seatBookingService = new SeatBookingService();
 export const movieHallService = new MovieHallService();
@@ -70,7 +70,7 @@ export const handleCreateBooking = async (
     );
 
     const seatBookings = await Promise.all(
-      seatIds.map((seatId:string) =>
+      seatIds.map((seatId: string) =>
         seatBookingService.createSeatBooking(
           { screeningId, seatId, bookingId },
           transaction as Transaction
@@ -230,15 +230,17 @@ export const handleDeleteBooking = async (
 };
 
 /**
- * Retrieve all bookings for a specific user.
+ * Retrieve all bookings for a specific user, including comment status.
  *
- * @description Fetches all bookings made by a particular user.
+ * @description Fetches all bookings made by a particular user and adds a `hasComment` boolean
+ * indicating whether each booking has an associated comment in the database.
  *
  * @param {Request} req - Express request object containing userId as a URL parameter
  * @param {Response} res - Express response object
  * @param {NextFunction} next - Express next middleware function
- * @returns {Promise<void>}
+ * @returns {Promise<void>} Resolves with a JSON array of bookings including the `hasComment` flag
  */
+
 export const handleGetBookingsByUser = async (
   req: Request,
   res: Response,
@@ -246,9 +248,27 @@ export const handleGetBookingsByUser = async (
 ): Promise<void> => {
   try {
     const { userId } = req.params;
+
+    // Fetch all bookings by user
     const bookings = await bookingService.getBookingsByUserId(userId);
 
-    res.status(200).json(bookings);
+    // Extract bookingIds
+    const bookingIds = bookings.map((b) => b.bookingId);
+
+    // Find comments by bookingIds
+    const comments = await CommentModel.find({
+      bookingId: { $in: bookingIds },
+    }).select('bookingId');
+
+    const commentedIds = new Set(comments.map((c) => c.bookingId));
+
+    // Add hasComment flag
+    const result = bookings.map((booking) => ({
+      ...booking.toJSON(),
+      hasComment: commentedIds.has(booking.bookingId),
+    }));
+
+    res.status(200).json(result);
   } catch (error) {
     next(error);
   }

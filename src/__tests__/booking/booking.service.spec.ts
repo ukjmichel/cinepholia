@@ -1,107 +1,31 @@
 import { Sequelize } from 'sequelize-typescript';
 import { BookingService } from '../../services/booking.service';
 import { BookingModel } from '../../models/booking.model';
-import { UserModel } from '../../models/user.model';
-import { ScreeningModel } from '../../models/screening.model';
-import { MovieModel } from '../../models/movie.model';
-import { MovieTheaterModel } from '../../models/movietheater.model';
-import { MovieHallModel } from '../../models/movieHall.model';
+import {
+  setupInMemoryDatabase,
+  resetTables,
+  seedBookingDependencies,
+} from '../../utils/setupTestDb';
 
 describe('BookingService', () => {
   let sequelize: Sequelize;
   let bookingService: BookingService;
 
   beforeAll(async () => {
-    sequelize = new Sequelize({
-      dialect: 'sqlite',
-      storage: ':memory:',
-      logging: false,
-    });
-
-    sequelize.addModels([
-      UserModel,
-      MovieModel,
-      MovieTheaterModel,
-      MovieHallModel,
-      ScreeningModel,
-      BookingModel,
-    ]);
-    await sequelize.sync({ force: true });
-
+    sequelize = await setupInMemoryDatabase();
     bookingService = new BookingService();
   });
 
   afterAll(async () => {
-    if (sequelize) {
-      await sequelize.close();
-    }
+    await sequelize.close();
   });
 
   beforeEach(async () => {
-    await BookingModel.destroy({ where: {}, truncate: true, cascade: true });
-    await ScreeningModel.destroy({ where: {}, truncate: true, cascade: true });
-    await MovieHallModel.destroy({ where: {}, truncate: true, cascade: true });
-    await MovieTheaterModel.destroy({
-      where: {},
-      truncate: true,
-      cascade: true,
-    });
-    await MovieModel.destroy({ where: {}, truncate: true, cascade: true });
-    await UserModel.destroy({ where: {}, truncate: true, cascade: true });
+    await resetTables();
   });
 
-  async function setupDependencies() {
-    const user = await UserModel.create({
-      id: 'user-uuid',
-      name: 'TestUser',
-      email: 'test@example.com',
-      password: 'password123',
-    });
-
-    const movie = await MovieModel.create({
-      movieId: 'movie-uuid',
-      title: 'Test Movie',
-      description: 'A mind-bending thriller',
-      ageRating: 'PG-13',
-      genre: 'Sci-Fi',
-      releaseDate: new Date(),
-      director: 'Christopher Nolan',
-      durationTime: '02:30:00',
-    });
-
-    const theater = await MovieTheaterModel.create({
-      theaterId: 'theater123',
-      address: '123 Test St',
-      postalCode: '12345',
-      city: 'Test City',
-      phone: '123-456-7890',
-      email: 'test@example.com',
-    });
-
-    const hall = await MovieHallModel.create({
-      theaterId: theater.theaterId,
-      hallId: 'hall-uuid',
-      seatsLayout: [
-        [1, 1, 1],
-        [1, 0, 1],
-        [1, 1, 1],
-      ],
-    });
-
-    const screening = await ScreeningModel.create({
-      screeningId: 'screening-uuid',
-      movieId: movie.movieId,
-      theaterId: theater.theaterId,
-      hallId: hall.hallId,
-      startTime: new Date(),
-      durationTime: '02:00:00',
-    });
-
-    return { user, screening };
-  }
-
   it('should create a booking', async () => {
-    const { user, screening } = await setupDependencies();
+    const { user, screening } = await seedBookingDependencies();
 
     const booking = await bookingService.createBooking({
       bookingId: 'booking123',
@@ -117,7 +41,7 @@ describe('BookingService', () => {
   });
 
   it('should get a booking by ID', async () => {
-    const { user, screening } = await setupDependencies();
+    const { user, screening } = await seedBookingDependencies();
 
     await BookingModel.create({
       bookingId: 'booking456',
@@ -139,7 +63,7 @@ describe('BookingService', () => {
   });
 
   it('should get all bookings', async () => {
-    const { user, screening } = await setupDependencies();
+    const { user, screening } = await seedBookingDependencies();
 
     await BookingModel.bulkCreate([
       {
@@ -159,12 +83,11 @@ describe('BookingService', () => {
     ]);
 
     const bookings = await bookingService.getAllBookings();
-
     expect(bookings.length).toBeGreaterThanOrEqual(2);
   });
 
   it('should update a booking', async () => {
-    const { user, screening } = await setupDependencies();
+    const { user, screening } = await seedBookingDependencies();
 
     await BookingModel.create({
       bookingId: 'bookingToUpdate',
@@ -186,12 +109,11 @@ describe('BookingService', () => {
     const updated = await bookingService.updateBooking('nonexistent', {
       status: 'used',
     });
-
     expect(updated).toBeNull();
   });
 
   it('should update booking to "used"', async () => {
-    const { user, screening } = await setupDependencies();
+    const { user, screening } = await seedBookingDependencies();
 
     await BookingModel.create({
       bookingId: 'bookingToUse',
@@ -201,21 +123,19 @@ describe('BookingService', () => {
       status: 'pending',
     });
 
-    const updatedBooking =
-      await bookingService.markBookingAsUsed('bookingToUse');
+    const updated = await bookingService.markBookingAsUsed('bookingToUse');
 
-    expect(updatedBooking).toBeDefined();
-    expect(updatedBooking?.status).toBe('used');
+    expect(updated).toBeDefined();
+    expect(updated?.status).toBe('used');
   });
 
   it('should return null when marking non-existing booking as used', async () => {
-    const updatedBooking =
-      await bookingService.markBookingAsUsed('nonexistent');
-    expect(updatedBooking).toBeNull();
+    const updated = await bookingService.markBookingAsUsed('nonexistent');
+    expect(updated).toBeNull();
   });
 
   it('should update booking to "canceled"', async () => {
-    const { user, screening } = await setupDependencies();
+    const { user, screening } = await seedBookingDependencies();
 
     await BookingModel.create({
       bookingId: 'bookingToCancel',
@@ -225,20 +145,19 @@ describe('BookingService', () => {
       status: 'pending',
     });
 
-    const updatedBooking =
-      await bookingService.cancelBooking('bookingToCancel');
+    const updated = await bookingService.cancelBooking('bookingToCancel');
 
-    expect(updatedBooking).toBeDefined();
-    expect(updatedBooking?.status).toBe('canceled');
+    expect(updated).toBeDefined();
+    expect(updated?.status).toBe('canceled');
   });
 
   it('should return null when canceling non-existing booking', async () => {
-    const updatedBooking = await bookingService.cancelBooking('nonexistent');
-    expect(updatedBooking).toBeNull();
+    const updated = await bookingService.cancelBooking('nonexistent');
+    expect(updated).toBeNull();
   });
 
   it('should delete a booking', async () => {
-    const { user, screening } = await setupDependencies();
+    const { user, screening } = await seedBookingDependencies();
 
     await BookingModel.create({
       bookingId: 'bookingToDelete',
@@ -258,7 +177,7 @@ describe('BookingService', () => {
   });
 
   it('should get all bookings for a user', async () => {
-    const { user, screening } = await setupDependencies();
+    const { user, screening } = await seedBookingDependencies();
 
     await BookingModel.bulkCreate([
       {

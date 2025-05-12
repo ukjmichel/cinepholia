@@ -1,99 +1,57 @@
 // src/__tests__/seatBooking/seatBooking.model.spec.ts
 import { Sequelize } from 'sequelize-typescript';
-import { v4 as uuidv4 } from 'uuid'; // ✅ ADD THIS
+import { v4 as uuidv4 } from 'uuid';
+
 import { SeatBookingModel } from '../../models/seatBooking.model';
 import { BookingModel } from '../../models/booking.model';
 import { ScreeningModel } from '../../models/screening.model';
-import { UserModel } from '../../models/user.model';
-import { MovieModel } from '../../models/movie.model';
-import { MovieTheaterModel } from '../../models/movietheater.model';
-import { MovieHallModel } from '../../models/movieHall.model';
+import {
+  setupInMemoryDatabase,
+  connectInMemoryMongo,
+  disconnectInMemoryMongo,
+  seedBookingDependencies,
+  resetTables,
+} from '../../utils/setupTestDb';
+
+let sequelize: Sequelize;
+
+beforeAll(async () => {
+  // Setup in-memory SQLite
+  sequelize = await setupInMemoryDatabase();
+
+  // Add SeatBookingModel if it's not included in setupInMemoryDatabase
+  sequelize.addModels([SeatBookingModel]);
+  await sequelize.sync({ force: true });
+
+  // Setup in-memory MongoDB
+  await connectInMemoryMongo();
+});
+
+afterAll(async () => {
+  await disconnectInMemoryMongo();
+  await sequelize.close();
+});
+
+beforeEach(async () => {
+  await resetTables();
+});
 
 describe('SeatBookingModel', () => {
-  let sequelize: Sequelize;
-
-  beforeAll(async () => {
-    sequelize = new Sequelize({
-      dialect: 'sqlite',
-      storage: ':memory:',
-      logging: false,
-    });
-
-    sequelize.addModels([
-      UserModel,
-      MovieModel,
-      MovieTheaterModel,
-      MovieHallModel,
-      ScreeningModel,
-      BookingModel,
-      SeatBookingModel,
-    ]);
-
-    await sequelize.sync({ force: true });
-  });
-
-  afterAll(async () => {
-    await sequelize.close();
-  });
-
   it('should create a SeatBooking correctly', async () => {
-    const user = await UserModel.create({
-      id: uuidv4(), // ✅ real UUID
-      name: 'TestUser',
-      email: 'test@example.com',
-      password: 'password123',
-    });
-
-    const movie = await MovieModel.create({
-      movieId: uuidv4(),
-      title: 'Interstellar', // 🔥 Correct: title (was name)
-      description: 'Space journey',
-      ageRating: 'PG-13', // 🔥 Correct: ageRating (was age)
-      genre: 'Sci-Fi',
-      releaseDate: new Date('2014-11-07'), // 🔥 Correct: releaseDate (was date)
-      director: 'Christopher Nolan', // 🔥 Add mandatory field
-      durationTime: "02:20:20", // 🔥 Add mandatory field
-    });
-
-    const theater = await MovieTheaterModel.create({
-      theaterId: uuidv4(), // ✅
-      address: '123 Cinema Street',
-      postalCode: '75000',
-      city: 'Paris',
-      phone: '0102030405',
-      email: 'contact@cinema.com',
-    });
-
-    const hall = await MovieHallModel.create({
-      hallId: uuidv4(), // ✅
-      theaterId: theater.theaterId,
-      seatsLayout: [
-        [1, 1, 1],
-        [1, 0, 1],
-      ],
-    });
-
-    const screening = await ScreeningModel.create({
-      screeningId: uuidv4(), // ✅
-      movieId: movie.movieId,
-      theaterId: theater.theaterId,
-      hallId: hall.hallId,
-      startTime: new Date(),
-      durationTime: "02:30:05",
-    });
+    // Use the provided utility to seed dependencies
+    const { user, screening } = await seedBookingDependencies();
 
     const booking = await BookingModel.create({
-      bookingId: uuidv4(), // ✅
+      bookingId: uuidv4(),
       userId: user.id,
       screeningId: screening.screeningId,
-      bookingDate: new Date(),
       seatsNumber: 1,
       status: 'pending',
     });
 
     const seatBooking = await SeatBookingModel.create({
       screeningId: screening.screeningId,
-      seatId: 'A1', // ✅ OK
+      seatId: 'A1',
       bookingId: booking.bookingId,
     });
 
@@ -104,6 +62,23 @@ describe('SeatBookingModel', () => {
   });
 
   it('should associate SeatBooking with Booking and Screening', async () => {
+    // Use the provided utility to seed dependencies
+    const { user, screening } = await seedBookingDependencies();
+
+    const booking = await BookingModel.create({
+      bookingId: uuidv4(),
+      userId: user.id,
+      screeningId: screening.screeningId,
+      seatsNumber: 1,
+      status: 'pending',
+    });
+
+    await SeatBookingModel.create({
+      screeningId: screening.screeningId,
+      seatId: 'A1',
+      bookingId: booking.bookingId,
+    });
+
     const seatBooking = await SeatBookingModel.findOne({
       where: { seatId: 'A1' },
       include: [BookingModel, ScreeningModel],
@@ -112,5 +87,7 @@ describe('SeatBookingModel', () => {
     expect(seatBooking).toBeDefined();
     expect(seatBooking!.booking).toBeDefined();
     expect(seatBooking!.screening).toBeDefined();
+    expect(seatBooking!.booking.bookingId).toBe(booking.bookingId);
+    expect(seatBooking!.screening.screeningId).toBe(screening.screeningId);
   });
 });
